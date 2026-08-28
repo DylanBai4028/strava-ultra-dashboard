@@ -367,6 +367,7 @@ def process_activity(conn, headers, activity_id, index: int, total: int) -> dict
 
 
 def main():
+    config.ensure_strava_credentials()
     try:
         access_token = config.get_access_token()
     except requests.HTTPError:

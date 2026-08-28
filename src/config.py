@@ -17,17 +17,27 @@ CHECKPOINT = DATA_DIR / "backfill_checkpoint.txt"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 ENV_PATH = BASE_DIR / ".env"
 
-if not ENV_PATH.exists():
-    sys.exit("Credentials not found. Run auth.py first to set up Strava access.")
-
-load_dotenv(ENV_PATH)
-STRAVA_CLIENT_ID = os.environ["STRAVA_CLIENT_ID"]
-STRAVA_CLIENT_SECRET = os.environ["STRAVA_CLIENT_SECRET"]
-STRAVA_REFRESH_TOKEN = os.environ["STRAVA_REFRESH_TOKEN"]
+# Strava credentials are optional at import time — schema.py, generate.py, and
+# the synthetic-data script never touch the Strava API, so they shouldn't
+# require .env to exist. Only fetch.py/backfill.py actually call Strava, so
+# they call ensure_strava_credentials() themselves before doing so.
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH)
+STRAVA_CLIENT_ID = os.environ.get("STRAVA_CLIENT_ID")
+STRAVA_CLIENT_SECRET = os.environ.get("STRAVA_CLIENT_SECRET")
+STRAVA_REFRESH_TOKEN = os.environ.get("STRAVA_REFRESH_TOKEN")
 GMAIL_APP_PASSWORD = os.environ.get(
     "GMAIL_APP_PASSWORD", ""
 )  # optional; validated only in notify_failure()
 NOTIFICATION_EMAIL = "dulabai4028@gmail.com"
+
+
+def ensure_strava_credentials():
+    """Call at the start of any script that actually hits the Strava API.
+    Scripts that only read the local database (generate.py, schema.py, the
+    synthetic-data generator) don't need this."""
+    if not (STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET and STRAVA_REFRESH_TOKEN):
+        sys.exit("Credentials not found. Run auth.py first to set up Strava access.")
 
 # Race dates
 KOSCI_DATE = date(2026, 11, 27)

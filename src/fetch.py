@@ -159,6 +159,7 @@ def sync_zones(conn, headers) -> None:
 
 
 def main():
+    config.ensure_strava_credentials()
     conn = get_db_conn()
     count = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
     if count == 0:

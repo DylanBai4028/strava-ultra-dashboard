@@ -23,11 +23,20 @@ self-contained HTML dashboard from it — no server, no account, no
 recurring cost, and your data never leaves your machine unless you choose
 to publish the output somewhere.
 
-It's opinionated toward long-distance trail/ultra running specifically —
-the load model, the flagging thresholds, and the race-readiness framing
-all assume that context. Adapting it for another sport or a very
-different training style would mean editing `src/config.py` and some of
-`src/generate.py`, not just plugging in new data.
+Everything here — the local-first pipeline, the SQLite schema, the load
+model (ACR, CTL/ATL/TSB), the race-readiness framing, the Coach's Note —
+is built around ultramarathon training specifically, because that's my
+sport and this is my own dashboard. But none of those *principles* are
+running-specific: tracking training load, comparing current fitness
+against past efforts, flagging when volume is ramping unsafely, and
+surfacing trends instead of raw numbers are useful for any endurance
+sport with enough history in Strava — cycling, triathlon, swimming,
+rowing, whatever you log there. The pipeline and dashboard mechanics
+(fetching, storing, rendering) would carry over largely unchanged; what's
+specific to running lives in `src/config.py` (thresholds, zones, race
+framing) and parts of `src/generate.py` (the metrics computed from
+`sport_type`). Adapting it for another sport means rewriting those parts
+around your own sport's numbers, not starting from scratch.
 
 ## Try it in 60 seconds (no Strava account needed)
 

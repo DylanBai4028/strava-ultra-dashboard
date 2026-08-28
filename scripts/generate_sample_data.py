@@ -1,21 +1,22 @@
 """Generate a small, fully synthetic training history so the dashboard can be
 built and explored with zero real Strava data.
 
-No real activity ever leaves the author's machine (see the README's Privacy
-section) — this script fabricates ~15 months of plausible running + weight
-training sessions from scratch, using a fixed random seed so the output is
-reproducible. It writes directly to `data/strava.db` using the exact schema
-`schema.py` creates, so run `schema.py` first.
+No real activity data is used here — this script fabricates ~15 months of
+plausible running + weight training sessions from scratch, using a fixed
+random seed so the output is reproducible. It writes directly to
+`data/strava.db` using the exact schema `schema.py` creates, so run
+`schema.py` first.
 
 The training *narrative* here (build → peak → step-back, repeating) is a
 generic periodization pattern — it has no connection to the real race
 calendar and personal data in `config.py`. That's expected: `config.py`
-ships as a worked example of the author's own training (see README), while
-this script exists purely to make every dashboard tab render with
-believable-looking numbers for anyone trying the project out.
+ships as a worked example of the author's own training (see the README's
+"What's in src/config.py" section), while this script exists purely to
+make every dashboard tab render with believable-looking numbers for
+anyone trying the project out.
 
 Usage:
-    uv run scripts/generate_sample_data.py
+    uv run python scripts/generate_sample_data.py
 """
 
 import math

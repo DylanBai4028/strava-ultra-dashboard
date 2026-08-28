@@ -1,3 +1,10 @@
+"""Creates and migrates `data/strava.db`. Run directly
+(`uv run python src/schema.py`) once after cloning, and again any time a
+schema change ships — day-to-day syncing (`fetch.py`) and dashboard
+building (`generate.py`) don't need it. Migrations are tracked in a
+`schema_version` table and only ever applied once each, so re-running is
+always safe."""
+
 import sqlite3
 
 from config import DATA_DIR, DB_PATH

@@ -1,3 +1,9 @@
+"""Builds `data/dashboard.html` from `data/strava.db`. Everything below is
+organised as one `compute_*` function per dashboard panel (weekly volume,
+HR zones, race readiness, and so on) — `build_payload()` near the bottom
+calls all of them and assembles the result into the dict handed to the
+Jinja2 template. Read-only: this file never writes back to the database."""
+
 import json
 import math
 import sqlite3

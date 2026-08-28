@@ -1,3 +1,11 @@
+"""One-time full-history pull — walks every activity from account creation
+to now via Strava's `/athlete/activities` list endpoint, then fetches each
+activity's full detail, streams, splits, laps, segment efforts, and best
+efforts. Resumable: progress is saved to `data/backfill_checkpoint.txt`
+after each page, so an interrupted run picks up where it left off rather
+than starting over. Not something you run day-to-day — see `fetch.py` for
+incremental syncs."""
+
 import sqlite3
 import sys
 from datetime import UTC, datetime

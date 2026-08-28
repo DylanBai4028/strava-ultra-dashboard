@@ -1,3 +1,11 @@
+"""Central configuration: file paths (derived from this file's location, so
+scripts work regardless of the working directory they're run from), Strava
+and Gmail credentials loaded from `.env`, and every manually-maintained
+constant the dashboard needs that isn't derivable from Strava data — race
+dates, training phases, race history, injuries, weekly mileage targets, and
+load-monitoring thresholds. This is the file to edit when adapting the
+dashboard for your own race or sport."""
+
 import os
 import sys
 from datetime import date, timedelta

@@ -1,3 +1,9 @@
+"""Shared helpers used across the pipeline: `strava_request()` wraps every
+Strava API call with rate-limit awareness and retry logic (429/5xx/network
+errors), and `notify_failure()`/`log_and_notify_failure()`/
+`handle_auth_failure()` are what `fetch.py`/`backfill.py` call on error to
+log the failure and optionally email `NOTIFICATION_EMAIL`."""
+
 import smtplib
 import sys
 import time

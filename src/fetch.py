@@ -1,3 +1,10 @@
+"""Incremental sync — pulls anything new since the last run: recent
+activities, gear, athlete profile, and HR/pace zones, then backfills any
+missing weather-estimated temperature. This is what a `strava-sync`-style
+alias calls; run it before regenerating the dashboard to pick up new
+activities without re-pulling your whole history (that's `backfill.py`'s
+job, once)."""
+
 import sys
 from datetime import UTC, datetime
 

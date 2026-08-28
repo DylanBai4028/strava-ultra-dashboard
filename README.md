@@ -38,6 +38,39 @@ framing) and parts of `src/generate.py` (the metrics computed from
 `sport_type`). Adapting it for another sport means rewriting those parts
 around your own sport's numbers, not starting from scratch.
 
+## How it works
+
+```mermaid
+flowchart LR
+    A["Your Strava account<br/>auth.py → backfill.py / fetch.py"] --> DB[("data/strava.db")]
+    B["scripts/generate_sample_data.py<br/>(no Strava account needed)"] --> DB
+
+    DB --> G["src/generate.py"]
+    CFG["src/config.py<br/>race calendar, load thresholds"] --> G
+    TPL["src/templates/dashboard.html"] --> G
+
+    G --> OUT["data/dashboard.html<br/>open in any browser"]
+```
+
+Two ways data gets into `strava.db`: your real Strava history (via
+`auth.py` once, then `backfill.py`/`fetch.py`), or the synthetic generator
+if you're just trying the project out. Either way, `generate.py` reads
+whatever's in the database, combines it with the constants in `config.py`
+and the HTML template, and writes out one self-contained
+`data/dashboard.html` — that's the entire pipeline. Two optional scripts
+(`weather.py`, `backfill_locations.py`) enrich the database in the
+background but aren't part of the core loop — see
+[Project layout](#project-layout) below for what everything does.
+
+## Requirements
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) for dependency management
+- A **Strava account with an active subscription**, only if you want to use
+  your own data — a paid plan is required to create the API app this
+  pipeline authenticates with (more on this below). Not needed for the
+  synthetic-data quickstart.
+
 ## Try it in 60 seconds (no Strava account needed)
 
 The repo ships a synthetic data generator so you can see the whole thing
@@ -149,15 +182,6 @@ docs/
   schema.md                data model reference
 data/                       gitignored — your database and generated dashboard live here
 ```
-
-## Requirements
-
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) for dependency management
-- A **Strava account with an active subscription**, only if you want to use
-  your own data — a paid plan is required to create the API app this
-  pipeline authenticates with (see the callout above). Not needed for the
-  synthetic-data quickstart.
 
 ## Built with Claude Code
 

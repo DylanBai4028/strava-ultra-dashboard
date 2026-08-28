@@ -35,7 +35,7 @@ The repo ships a synthetic data generator so you can see the whole thing
 work before connecting anything real:
 
 ```bash
-git clone https://github.com/<your-username>/strava-ultra-dashboard.git
+git clone https://github.com/DylanBai4028/strava-ultra-dashboard.git
 cd strava-ultra-dashboard
 uv sync
 uv run python src/schema.py                    # creates the (empty) database

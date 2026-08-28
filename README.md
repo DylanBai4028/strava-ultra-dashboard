@@ -161,18 +161,25 @@ data/                       gitignored — your database and generated dashboard
 
 ## Built with Claude Code
 
-I'll be upfront about this: the whole thing — the pipeline, the schema
-design, the load-monitoring model, the dashboard itself, and the analysis
-behind what to visualise and how — was built by vibe-coding with
-[Claude Code](https://claude.com/claude-code). I described what I wanted
-(a real training dashboard, not a toy) and iterated on it with Claude over
-a series of sessions, reviewing and directing every change rather than
-accepting things blind — but Claude wrote the large majority of the code
-and did the data analysis behind most of the design decisions.
-If you have suggestions for how to make it better — a chart that's
-misleading, a metric that's missing, code that could be cleaner — I'd
-genuinely like to hear it. Good or bad, feedback is welcome; open an issue
-or a PR.
+This started from curiosity, not a plan. I learned Claude could connect
+to Strava's API and got curious what would actually happen if I pointed
+it at years of my own training data — what could AI and personal data
+uncover together, and could I build something out of it that was
+genuinely useful, not just a novelty. One question turned into a real
+project: the pipeline, the schema design, the load-monitoring model, the
+dashboard itself, and the analysis behind what to visualise and how were
+all built by vibe-coding with [Claude Code](https://claude.com/claude-code)
+— I described what I wanted, reviewed and directed every change over a
+series of sessions, and Claude wrote the large majority of the code and
+did the data analysis behind most of the design decisions. It's turned
+into one of the most fun things I've built, and if it nudges anyone else
+to point Claude at their own Strava data and see what comes out, that'd
+make me pretty happy.
+
+I welcome all feedback — good, bad, "this chart doesn't make sense,"
+"you're missing an obvious metric," whatever. The goal is for this
+dashboard to keep getting more useful over time, and the fastest way
+there is hearing what isn't working. Open an issue or a PR.
 
 ### How I run it day to day
 

@@ -53,6 +53,13 @@ generates and why.
 
 ## Using it with your own Strava data
 
+> **Requires a Strava subscription.** Strava requires a paid subscription
+> to create an API application — free accounts can't generate the
+> Client ID/Secret this pipeline needs. See
+> [Strava's API getting-started guide](https://developers.strava.com/docs/getting-started/)
+> for details. (The synthetic-data quickstart above doesn't need this —
+> only connecting your own account does.)
+
 1. **Register a Strava API app** — go to
    [strava.com/settings/api](https://www.strava.com/settings/api), create
    an app (any name/website works, "Authorization Callback Domain" should
@@ -138,24 +145,52 @@ data/                       gitignored — your database and generated dashboard
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- A Strava account, only if you want to use your own data (skip for the
-  synthetic-data quickstart)
+- A **Strava account with an active subscription**, only if you want to use
+  your own data — a paid plan is required to create the API app this
+  pipeline authenticates with (see the callout above). Not needed for the
+  synthetic-data quickstart.
 
-## My personal setup (not required to use this)
+## Built with Claude Code
 
-I run this against my own training with a few conveniences that are
-specific to my machine, not part of the project itself:
+I'll be upfront about this: the whole thing — the pipeline, the schema
+design, the load-monitoring model, the dashboard itself, and the analysis
+behind what to visualise and how — was built by vibe-coding with
+[Claude Code](https://claude.com/claude-code). I described what I wanted
+(a real training dashboard, not a toy) and iterated on it with Claude over
+a series of sessions, reviewing and directing every change rather than
+accepting things blind — but Claude wrote the large majority of the code
+and did the data analysis behind most of the design decisions.
+If you have suggestions for how to make it better — a chart that's
+misleading, a metric that's missing, code that could be cleaner — I'd
+genuinely like to hear it. Good or bad, feedback is welcome; open an issue
+or a PR.
 
-- Shell aliases (`strava-sync`, `strava-dashboard`) that chain the fetch +
-  generate steps and open the result
-- A workflow that republishes the dashboard as a
+### How I run it day to day
+
+None of this is required to use the project — `generate.py` produces a
+complete, self-contained `dashboard.html` you can open directly or host
+anywhere that serves static files. This is just how *I* run it, also via
+Claude Code:
+
+- **Refreshing:** two shell aliases, `strava-sync` (runs `fetch.py`) and
+  `strava-dashboard` (runs `generate.py` and opens the result), chain the
+  two steps I'd otherwise type by hand.
+- **Publishing:** I keep a live copy of my own dashboard published as a
   [Claude Artifact](https://claude.ai/code/artifact/890ffba1-1a26-458b-862a-697c44d66790)
-  so I can check it from my phone — this needs an interactive Claude Code
-  session and isn't something the pipeline itself depends on
+  so I can check it from my phone without a server. A third alias,
+  `strava-publish`, runs the sync + regenerate steps and copies a
+  ready-to-send prompt to my clipboard — I paste it into a Claude Code
+  session and it republishes the Artifact at the same URL. The paste step
+  can't be fully automated away: Claude Code's non-interactive mode
+  (`claude -p`) can publish Artifacts, but caps them at 256KB, and my
+  dashboard runs larger than that (mostly embedded fonts and data) — only
+  an interactive session can publish something that size. So the
+  automation gets everything ready in one command; only the last "hit
+  enter" step is manual.
 
-None of this is needed to run the project yourself — `generate.py`
-produces a complete, self-contained `dashboard.html` you can open directly
-or host anywhere that serves static files.
+This is a personal convenience layer, not something the pipeline depends
+on — if you're running this yourself, `generate.py` → `open
+data/dashboard.html` is the whole loop.
 
 ## License
 

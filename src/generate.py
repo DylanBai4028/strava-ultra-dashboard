@@ -443,6 +443,61 @@ def compute_hr_zone_distribution(conn) -> list[dict]:
     return result
 
 
+# ── Pace distribution (weekly % time in pace bands) ─────────────────────
+
+# Fixed bands, not personalized zones — unlike HR there's no stored per-athlete
+# pace-zone boundary to classify against. Upper bound per band, sec/km; widens
+# at the slow end where 200-miler walk breaks / hiking live. Just a constant
+# list — retune freely if the bands don't land well against real data.
+PACE_BAND_BOUNDS_SEC = [270, 300, 330, 360, 420, 480]
+PACE_BAND_LABELS = [
+    "Sub-4:30/km",
+    "4:30–5:00/km",
+    "5:00–5:30/km",
+    "5:30–6:00/km",
+    "6:00–7:00/km",
+    "7:00–8:00/km",
+    "8:00+/km",
+]
+
+
+def classify_pace_band(pace_sec_per_km: float) -> int:
+    for i, bound in enumerate(PACE_BAND_BOUNDS_SEC):
+        if pace_sec_per_km <= bound:
+            return i
+    return len(PACE_BAND_BOUNDS_SEC) - 1
+
+
+def compute_pace_distribution(conn) -> list[dict]:
+    rows = conn.execute(f"""
+        SELECT a.start_local, s.velocity_smooth
+        FROM streams s
+        JOIN activities a ON a.id = s.activity_id
+        WHERE s.moving = 1 AND s.velocity_smooth IS NOT NULL AND s.velocity_smooth > 0
+              AND a.sport_type IN {RUNNING_TYPES_SQL}
+    """).fetchall()
+    weekly_band_seconds = defaultdict(lambda: [0] * len(PACE_BAND_LABELS))
+    for r in rows:
+        d = parse_date(r["start_local"])
+        pace_sec_per_km = 1000.0 / r["velocity_smooth"]
+        band = classify_pace_band(pace_sec_per_km)
+        weekly_band_seconds[week_start(d)][band] += 1
+
+    # Raw per-band seconds (not percentages), same reasoning as the HR-zone
+    # distribution above: the template re-buckets weeks into months/quarters on
+    # long ranges and needs real totals to compute honest percentages from.
+    result = []
+    for wk in sorted(weekly_band_seconds):
+        secs = weekly_band_seconds[wk]
+        result.append(
+            {
+                "week_start": wk.isoformat(),
+                "band_seconds": secs,
+            }
+        )
+    return result
+
+
 # ── Monthly aggregates (night runs, group/solo, temperature) ───────────
 
 
@@ -712,14 +767,16 @@ def compute_plan_weeks(weekly: list[dict]) -> list[dict]:
     while wk <= dw_wk:
         a = actual_by_week.get(wk.isoformat())
         if a:
-            actual = a["km"]
+            actual, elevation = a["km"], a["elevation_m"]
         else:
-            actual = 0.0 if wk <= today_wk else None  # past week, nothing recorded
+            # past week, nothing recorded
+            actual = elevation = 0.0 if wk <= today_wk else None
         rows.append(
             {
                 "week_start": wk.isoformat(),
                 "target_km": target_for_week(wk),
                 "actual_km": actual,
+                "elevation_m": elevation,
                 "is_current": wk == today_wk,
                 "race": "kosci" if wk == kosci_wk else ("delirious" if wk == dw_wk else None),
             }
@@ -942,6 +999,7 @@ def build_payload(conn) -> dict:
         "hr_coverage_pct": compute_hr_coverage(conn),
         "weekly": weekly,
         "hr_zones": compute_hr_zone_distribution(conn),
+        "pace_distribution": compute_pace_distribution(conn),
         "monthly": compute_monthly(conn),
         "long_run_splits": compute_long_run_splits(conn),
         "shoes": shoe_list,

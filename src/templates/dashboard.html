@@ -33,6 +33,8 @@
   --s1: #2a78d6; --s2: #008300; --s3: #e87ba4; --s4: #eda100;
   --s5: #1baf7a; --s6: #eb6834; --s7: #4a3aa7; --s8: #e34948;
   --hz1: #86b6ef; --hz2: #5598e7; --hz3: #2a78d6; --hz4: #1c5cab; --hz5: #104281;
+  --pz1: #a8e0c2; --pz2: #7fd1a4; --pz3: #57c187; --pz4: #2fb26a;
+  --pz5: #1f9558; --pz6: #167a48; --pz7: #0c5c37;
   --shadow: 0 1px 2px rgba(26,26,26,0.04), 0 4px 16px rgba(26,26,26,0.06);
 }
 @media (prefers-color-scheme: dark) {
@@ -47,6 +49,8 @@
     --s1: #3987e5; --s2: #2fbf2f; --s3: #d55181; --s4: #c98500;
     --s5: #199e70; --s6: #d95926; --s7: #9085e9; --s8: #e66767;
     --hz1: #184f95; --hz2: #1c5cab; --hz3: #256abf; --hz4: #3987e5; --hz5: #86b6ef;
+    --pz1: #0c5c37; --pz2: #167a48; --pz3: #1f9558; --pz4: #2fb26a;
+    --pz5: #57c187; --pz6: #7fd1a4; --pz7: #a8e0c2;
     --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 4px 20px rgba(0,0,0,0.35);
   }
 }
@@ -61,6 +65,8 @@
   --s1: #3987e5; --s2: #2fbf2f; --s3: #d55181; --s4: #c98500;
   --s5: #199e70; --s6: #d95926; --s7: #9085e9; --s8: #e66767;
   --hz1: #184f95; --hz2: #1c5cab; --hz3: #256abf; --hz4: #3987e5; --hz5: #86b6ef;
+  --pz1: #0c5c37; --pz2: #167a48; --pz3: #1f9558; --pz4: #2fb26a;
+  --pz5: #57c187; --pz6: #7fd1a4; --pz7: #a8e0c2;
   --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 4px 20px rgba(0,0,0,0.35);
 }
 :root[data-theme="light"] {
@@ -327,7 +333,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
   <section class="tab active" id="tab-summary">
     <div class="stat-row" id="summaryStats"></div>
     <div class="panel">
-      <div class="panel-head"><h2>Coach's note</h2><span class="hint">generated from this week's numbers — not medical or training advice</span></div>
+      <div class="panel-head"><h2>Coach's note</h2><span class="hint">generated from this week's numbers as of the last sync — not medical or training advice</span></div>
       <div class="insight" id="summaryInsight"></div>
     </div>
     <div class="caution" id="injuryBanner"></div>
@@ -347,6 +353,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
       </div>
       <div class="panel-body"><svg class="chart" id="chartPlan"></svg></div>
       <div class="legend" id="planLegend"></div>
+      <div class="stat-row" id="planCallouts"></div>
     </div>
     <div class="panel">
       <div class="panel-head"><h2>Coming weeks</h2><span class="hint">next 8 weeks of the target curve</span></div>
@@ -420,6 +427,14 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
           <span id="hrCoverageHint" class="hint"></span>
         </div>
         <div class="panel-body"><svg class="chart" id="chartHrZones"></svg></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Pace distribution</h2>
+          <span class="hint">reflects the date range selected above</span>
+        </div>
+        <div class="panel-body"><svg class="chart" id="chartPaceDist"></svg></div>
       </div>
 
       <div class="panel">
@@ -1172,11 +1187,16 @@ function barChart(svgId, { xLabels, series, height = 210, yFormat, onClick, stac
 // (categorical comparison across named gear) and HR zone distribution
 // (categorical comparison across zones) — same visual problem, one component.
 // Each row: { name, value, color, valueLabel?, tooltip? }.
-function hBarChart(svgId, { rows, max, threshold, onClick }) {
+// `height` targets the same visual height as this chart's grid siblings
+// (line/bar charts pass an explicit height too) — rowH is derived from it so a
+// short row count doesn't leave the stretched grid panel with dead space below
+// the bars. Floored so a future call with many rows doesn't collapse to nothing.
+function hBarChart(svgId, { rows, max, threshold, onClick, height: targetHeight = 200 }) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const W = svg.parentElement.clientWidth || 600;
-  const rowH = 30, padL = 138, padR = 60, padT = 8;
+  const padL = 138, padR = 60, padT = 8;
+  const rowH = Math.max((targetHeight - padT * 2) / rows.length, 18);
   const height = rows.length * rowH + padT * 2;
   const plotW = W - padL - padR;
   svg.setAttribute("viewBox", `0 0 ${W} ${height}`);
@@ -1523,6 +1543,42 @@ function renderPlanChart() {
     <span class="item"><span class="swatch" style="background:var(--band-race)"></span>Race week</span>`;
 }
 
+// "Remaining days" counts today as a remaining day (i.e. "starting right now,
+// how much per day for the rest of the week") — flip to isoWeekday + 1 below
+// if you'd rather exclude today.
+function renderPlanCallouts() {
+  const row = $("#planCallouts");
+  const current = (DATA.plan_weeks || []).find(p => p.is_current);
+  if (!current) { row.innerHTML = ""; return; }
+
+  const jsDay = new Date(todayISO() + "T00:00:00").getDay(); // 0=Sun..6=Sat
+  const isoWeekday = (jsDay + 6) % 7; // 0=Mon..6=Sun, matches week_start()'s Monday convention
+  const daysRemaining = 7 - isoWeekday;
+
+  const hasTarget = current.target_km != null;
+  const kmRemaining = hasTarget ? Math.max(0, current.target_km - (current.actual_km || 0)) : null;
+
+  const tiles = [
+    hasTarget
+      ? { label: "Km remaining this week", value: kmRemaining > 0 ? `${kmRemaining.toFixed(1)} km` : "0 km",
+          sub: kmRemaining > 0 ? `of ${Math.round(current.target_km)} km target` : "target met" }
+      : { label: "Km remaining this week", value: "–", sub: "no target set this week" },
+    hasTarget
+      ? { label: "Needed per day", value: `${(kmRemaining / daysRemaining).toFixed(1)} km`,
+          sub: `over ${daysRemaining} remaining day${daysRemaining === 1 ? "" : "s"}` }
+      : { label: "Needed per day", value: "–", sub: "no target set this week" },
+    { label: "Elevation this week", value: current.elevation_m != null ? `${Math.round(current.elevation_m)} m` : "–",
+      sub: "gained so far" },
+  ];
+  row.innerHTML = "";
+  for (const t of tiles) {
+    const tile = document.createElement("div");
+    tile.className = "stat-tile";
+    tile.innerHTML = `<div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub}</div>`;
+    row.appendChild(tile);
+  }
+}
+
 function renderPlanTable() {
   const plan = DATA.plan_weeks || [];
   const idx = plan.findIndex(p => p.is_current);
@@ -1723,9 +1779,37 @@ function renderHrZones() {
       tooltip: `<div class="tt-title">${ZONE_LABELS[i]}</div><div class="tt-row"><span>${pct.toFixed(1)}% of time</span><span>${fmtHMS(Math.round(secs))}</span></div>`,
     };
   });
-  hBarChart("chartHrZones", { rows, max: 100 });
+  hBarChart("chartHrZones", { rows, max: 100, height: 200 });
   const cov = DATA.hr_coverage_pct;
   $("#hrCoverageHint").textContent = (cov != null ? `${cov}% HR coverage · ` : "") + "reflects the date range selected above";
+}
+
+// Fixed pace bands, not personalized zones (see PACE_BAND_BOUNDS_SEC in
+// generate.py) — there's no per-athlete "pace zone" boundary to classify
+// against the way there is for HR. Same aggregate-bar treatment as the HR
+// zone chart above, for the same reason: a per-week stacked bar makes a
+// middle band hard to compare week-to-week against a shifting baseline.
+const PACE_LABELS = ["Sub-4:30/km", "4:30–5:00/km", "5:00–5:30/km", "5:30–6:00/km", "6:00–7:00/km", "7:00–8:00/km", "8:00+/km"];
+function renderPaceDistribution() {
+  const paceRows = DATA.pace_distribution || [];
+  if (!paceRows.length) { $("#chartPaceDist").parentElement.innerHTML = '<div class="empty-msg">No pace data yet — run strava-sync.</div>'; return; }
+  const weekSet = new Set(selectRawWeeks().map(w => w.week_start));
+  const totals = new Array(PACE_LABELS.length).fill(0);
+  for (const p of paceRows) {
+    if (!weekSet.has(p.week_start)) continue;
+    p.band_seconds.forEach((s, i) => totals[i] += s);
+  }
+  const grandTotal = totals.reduce((a, b) => a + b, 0);
+  if (!grandTotal) { $("#chartPaceDist").parentElement.innerHTML = '<div class="empty-msg">No pace data in the selected date range.</div>'; return; }
+  const colors = ["var(--pz1)", "var(--pz2)", "var(--pz3)", "var(--pz4)", "var(--pz5)", "var(--pz6)", "var(--pz7)"];
+  const rows = totals.map((secs, i) => {
+    const pct = 100 * secs / grandTotal;
+    return {
+      name: PACE_LABELS[i], value: pct, color: colors[i], valueLabel: `${pct.toFixed(1)}%`,
+      tooltip: `<div class="tt-title">${PACE_LABELS[i]}</div><div class="tt-row"><span>${pct.toFixed(1)}% of time</span><span>${fmtHMS(Math.round(secs))}</span></div>`,
+    };
+  });
+  hBarChart("chartPaceDist", { rows, max: 100, height: 200 });
 }
 
 function renderPacing() {
@@ -1958,9 +2042,9 @@ function renderCheckpointTable() {
 // ── tabs ───────────────────────────────────────────────────────────────
 const TAB_RENDERERS = {
   summary: [renderSummary],
-  plan: [renderPlanChart, renderPlanTable, renderPhasesTable],
+  plan: [renderPlanChart, renderPlanCallouts, renderPlanTable, renderPhasesTable],
   load: [renderVolume, renderElevation, renderACR, renderLoadTrend, renderB2B],
-  fitness: [renderEfficiency, renderHrZones, renderPacing, renderCadence, renderBestEfforts, renderLongestRun, renderRaceHistory],
+  fitness: [renderEfficiency, renderHrZones, renderPaceDistribution, renderPacing, renderCadence, renderBestEfforts, renderLongestRun, renderRaceHistory],
   context: [renderWeight, renderConsistency, renderShoes, renderNight, renderGroupSolo, renderTemp, renderYearly],
   locations: [renderLocations],
   definitions: [], // static reference content — no data-driven rendering needed

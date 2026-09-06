@@ -1001,7 +1001,7 @@ function spikeMarker(cx, topY, reason) {
   path.addEventListener("mouseleave", hideTooltip);
   return path;
 }
-function lineChart(svgId, { xLabels, series, target, bands, yBands, height = 210, yFormat, onClick, xLabelFormat, padL = 40 }) {
+function lineChart(svgId, { xLabels, series, target, targetArea = false, bands, yBands, height = 210, yFormat, onClick, xLabelFormat, padL = 40 }) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const W = svg.parentElement.clientWidth || 600;
@@ -1057,8 +1057,27 @@ function lineChart(svgId, { xLabels, series, target, bands, yBands, height = 210
     svg.appendChild(t);
   });
 
-  // target line
+  // target line (full horizon) + optional target area, bounded to wherever
+  // actual data exists — the future plan stays a line-only reference so it
+  // doesn't dominate the chart's shape, while the comparison-relevant range
+  // gets a filled area of its own, at the same opacity as an actual series'
+  // area, so the two overlap visibly rather than one being a thin outline
+  // against the other's fill.
   if (target) {
+    if (targetArea) {
+      const actualXs = series.flatMap(s => s.values.filter(v => v.y != null).map(v => v.x));
+      const maxX = actualXs.length ? Math.max(...actualXs) : -1;
+      const targetPts = [];
+      for (let i = 0; i <= maxX; i++) {
+        if (target[i] != null) targetPts.push({ x: i, y: target[i] });
+      }
+      if (targetPts.length) {
+        const areaPts = targetPts.map(p => `${xScale(p.x)},${yScale(p.y)}`).join(" L ");
+        const first = targetPts[0], last = targetPts[targetPts.length - 1];
+        const d = `M ${xScale(first.x)},${yScale(yLo)} L ${areaPts} L ${xScale(last.x)},${yScale(yLo)} Z`;
+        svg.appendChild(svgEl("path", { d, class: "mark-area", fill: "var(--ink-muted)" }));
+      }
+    }
     const pts = target.map((v, i) => (v == null ? null : `${xScale(i)},${yScale(v)}`)).filter(Boolean).join(" L ");
     if (pts) svg.appendChild(svgEl("path", { d: `M ${pts}`, class: "target-line", stroke: "var(--ink-muted)" }));
   }
@@ -1532,6 +1551,7 @@ function renderPlanChart() {
     xLabels,
     series: [{ label: "Actual", color: "var(--s1)", values, area: true }],
     target: plan.map(p => p.target_km),
+    targetArea: true, // fills the target curve too, bounded to weeks with actual data — see lineChart()
     bands,
     height: 260,
     yFormat: (v) => Math.round(v),
@@ -1539,7 +1559,7 @@ function renderPlanChart() {
   });
   $("#planLegend").innerHTML = `
     <span class="item"><span class="swatch" style="background:var(--s1)"></span>Actual km</span>
-    <span class="item"><span class="swatch" style="background:var(--ink-muted)"></span>Target curve (dashed)</span>
+    <span class="item"><span class="swatch" style="background:var(--ink-muted)"></span>Target curve (dashed, shaded through this week)</span>
     <span class="item"><span class="swatch" style="background:var(--band-race)"></span>Race week</span>`;
 }
 

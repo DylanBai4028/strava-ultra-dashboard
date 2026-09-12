@@ -19,6 +19,7 @@ BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "strava.db"
 DASHBOARD_PATH = DATA_DIR / "dashboard.html"
+COACH_NOTE_PATH = DATA_DIR / "coach_note.json"  # Claude-authored, cached — see generate.py
 SYNC_LOG = DATA_DIR / "sync.log"
 BACKFILL_LOG = DATA_DIR / "backfill.log"
 CHECKPOINT = DATA_DIR / "backfill_checkpoint.txt"

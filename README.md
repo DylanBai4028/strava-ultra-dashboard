@@ -157,6 +157,39 @@ running this against your own Strava data, the dashboard will still show
 There's no separate "your data" vs "my config" split — it's one file,
 meant to be forked and rewritten for your own race.
 
+## The Coach's Note isn't fully automatic — here's what it actually is
+
+The Summary tab's Coach's Note reads like it was written by someone reviewing
+your training, because in my own workflow, it periodically is. It's not an
+API call baked into the pipeline; it's a manual step in how I refresh my own
+dashboard, using Claude Code as the reviewer:
+
+1. `python generate.py --facts` prints a compact JSON summary of your current
+   training data — phase, this week's numbers, recent weeks tagged by which
+   training phase each one falls in, ramp-check math, race readiness, and so
+   on. See `compute_facts_bundle()` in `src/generate.py`.
+2. I review that output (in a live Claude Code session) and hand-write a
+   short note, saved as `data/coach_note.json`:
+   ```json
+   {
+     "generated_at": "2026-10-03T09:00:00+00:00",
+     "based_on": "2026-10-03",
+     "html": "<p><strong>Post-Europe rebuild</strong> — rebuilding fitness from a detrained base toward the target race. 58 km this week against an 85 km/wk target (in progress).</p><p>Weekly volume is behind the target curve this week, but the last 3 full weeks (66 → 78 → 82 km) show a build that's still tracking close to plan overall — one lighter week inside a longer ramp isn't a trend on its own. Reaching the 161 km/wk peak by the target date would need about 15%/week compound growth from here, which is aggressive but consistent with the pace of the last month.</p><p>Fitness (CTL 74) is climbing steadily and form (TSB -12) shows accumulating fatigue typical of a build phase, not a red flag. Load ratio (ACR) is 1.15 — safe band. Fitness is now within the range of where training sat heading into the last few races.</p><p>Longest effort to date (270 km) already covers 84% of the goal race distance. Next waypoint: 100 km/wk in two weeks.</p>"
+   }
+   ```
+   (Fabricated numbers, deliberately different from anything shown on the
+   live dashboard linked above — this is illustrative, not real data.)
+3. `generate.py` embeds that file's content into the dashboard if it exists;
+   if it doesn't (which is the case right after you clone this repo and run
+   the synthetic-data quickstart), the dashboard falls back to an
+   algorithmic version — the same kind of fixed if/else JS template every
+   other panel here uses, labeled "Algorithmic draft — not yet reviewed."
+   Never a blank panel, just a plainer one.
+
+You can recreate this yourself, with any LLM or by hand — it's just a JSON
+file in the shape above. There's no staleness check: whatever's cached shows
+indefinitely, dated, until you write a newer one.
+
 ## Data model
 
 See [docs/schema.md](docs/schema.md) for the full table-by-table

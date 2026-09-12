@@ -6,6 +6,7 @@ Ultrarunning_Keys.rtf
 data/strava.db
 data/strava.db-*
 data/dashboard.html
+data/coach_note.json
 data/*.log
 data/backfill_checkpoint.txt
 

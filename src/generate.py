@@ -2,11 +2,15 @@
 organised as one `compute_*` function per dashboard panel (weekly volume,
 HR zones, race readiness, and so on) — `build_payload()` near the bottom
 calls all of them and assembles the result into the dict handed to the
-Jinja2 template. Read-only: this file never writes back to the database."""
+Jinja2 template. Read-only: this file never writes back to the database.
+
+Run with `--facts` to print the Coach's Note facts bundle instead (see
+`compute_facts_bundle()` and the README's "Coach's Note" section)."""
 
 import json
 import math
 import sqlite3
+import sys
 from bisect import bisect_right
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
@@ -189,17 +193,29 @@ def compute_race_readiness(ctl_by_date: dict, atl_by_date: dict, today: date) ->
 
 def compute_ramp_check(weekly: list[dict], today: date) -> dict | None:
     """How steep a ramp reaching the next peak-mileage target actually requires,
-    stated as a compound weekly growth rate from the trailing 4-week average.
-    Deliberately NOT compared against a fixed "safe" percentage — the flat 10%
-    week-on-week rule was removed 2026-08-27 for firing on every big (normal,
-    for this athlete) training swing. This just states the honest math, which
-    speaks for itself, rather than implying feasibility via a target-curve line
-    on a chart that's never checked against anything.
+    stated as a compound weekly growth rate from the trailing full-week average
+    (up to 4 weeks — see below). Deliberately NOT compared against a fixed "safe"
+    percentage — the flat 10% week-on-week rule was removed 2026-08-27 for firing
+    on every big (normal, for this athlete) training swing. This just states the
+    honest math, which speaks for itself, rather than implying feasibility via a
+    target-curve line on a chart that's never checked against anything.
     "Peak" = the highest WEEKLY_KM_TARGETS value between today and whichever
-    race (Kosci or Delirious West) comes next; ties keep the earliest date."""
+    race (Kosci or Delirious West) comes next; ties keep the earliest date.
+
+    The baseline excludes any week inside the Europe deload (config.EUROPE_END) —
+    averaging a deliberate low-volume break in with real training weeks produced a
+    misleadingly inflated "growth needed" figure right after the break ended
+    (contaminated-baseline bug found 2026-09-12: a 33%/week figure off a
+    deload-dragged 35 km/wk baseline, vs ~18%/week off the real 66 km/wk last full
+    week). Uses up to the last 4 full weeks since the break ended; if fewer than 4
+    exist yet, uses however many do (min 1) rather than reaching further back into
+    stale pre-break weeks — `avg_weeks` in the result says how many were used.
+    A similar dip could recur after a race recovery block; not generalized to every
+    config phase here, just this specific, already-hit case."""
     full_weeks = [w for w in weekly if not w["partial"]]
-    last4 = full_weeks[-4:]
-    if len(last4) < 4:
+    post_deload = [w for w in full_weeks if w["week_start"] >= config.EUROPE_END.isoformat()]
+    last4 = post_deload[-4:]
+    if not last4:
         return None
     avg_km = sum(w["km"] for w in last4) / len(last4)
 
@@ -220,6 +236,7 @@ def compute_ramp_check(weekly: list[dict], today: date) -> dict | None:
     required_growth = (peak_km / avg_km) ** (1 / weeks_remaining) - 1
     return {
         "current_avg_km": round(avg_km, 1),
+        "avg_weeks": len(last4),
         "peak_km": peak_km,
         "peak_date": peak_date.isoformat(),
         "weeks_remaining": round(weeks_remaining, 1),
@@ -967,6 +984,100 @@ def compute_training_phases() -> list[dict]:
     return out
 
 
+def _phase_for(iso_date: str, phases: list[dict]) -> str | None:
+    """Maps an ISO date string to the training-phase name it falls in (from
+    compute_training_phases()'s output). ISO date strings sort/compare correctly as plain
+    strings, so no date parsing needed. Returns None for a date before any configured phase
+    (e.g. ordinary pre-plan training weeks) rather than mis-attributing it to the first phase."""
+    for p in phases:
+        if p["start"] <= iso_date and (p["end"] is None or iso_date < p["end"]):
+            return p["name"]
+    return None
+
+
+def compute_facts_bundle(conn) -> dict:
+    """Compact, human/Claude-readable summary for hand-authoring the Coach's Note (see
+    `python generate.py --facts`). Deliberately not the full `build_payload()` output — trimmed
+    to what the note actually needs, with each recent week tagged by training phase so a
+    comparison window straddling a phase boundary (e.g. Europe deload -> post-Europe rebuild) is
+    visible in the data itself, not something to infer by cross-referencing dates by hand. That
+    exact blind spot is what made the old JS-templated note wrong on 2026-09-12."""
+    today = date.today()
+    today_iso = today.isoformat()
+    daily_effort = compute_daily_effort(conn)
+    ctl_by_date, atl_by_date = compute_ctl_atl_series(daily_effort, config.LOAD_TREND_START, today)
+    weekly = compute_weekly(conn, daily_effort, ctl_by_date, atl_by_date)
+    phases = compute_training_phases()
+
+    this_week = weekly[-1] if weekly else None
+    recent_weeks = [
+        {
+            "week_start": w["week_start"],
+            "km": w["km"],
+            "phase": _phase_for(w["week_start"], phases),
+            "acr": w["acr"],
+            "acr_status": w["acr_status"],
+            "ctl": w["ctl"],
+            "atl": w["atl"],
+            "tsb": w["tsb"],
+            "partial": w["partial"],
+        }
+        for w in weekly[-10:]
+    ]
+
+    # Raw waypoints, not interpolated weekly targets — matches what the dashboard's own
+    # "Next waypoint" hint already shows elsewhere (a real milestone, not a mid-segment value).
+    next_waypoint = None
+    for d, km in config.WEEKLY_KM_TARGETS:
+        if d.isoformat() > today_iso and km is not None:
+            next_waypoint = {"week_start": d.isoformat(), "target_km": km}
+            break
+
+    return {
+        "today": today_iso,
+        "current_phase": next(
+            (p for p in phases if _phase_for(today_iso, phases) == p["name"]), None
+        ),
+        "this_week": None
+        if this_week is None
+        else {
+            "week_start": this_week["week_start"],
+            "km": this_week["km"],
+            "target_km": this_week["target_km"],
+            "is_partial": this_week["partial"],
+        },
+        "recent_weeks": recent_weeks,
+        "ramp_check": compute_ramp_check(weekly, today),
+        "race_readiness": compute_race_readiness(ctl_by_date, atl_by_date, today),
+        "longest_run": compute_longest_run(conn),
+        "delirious_west_distance_km": config.DELIRIOUS_WEST_DISTANCE_KM,
+        "next_waypoint": next_waypoint,
+        "active_injuries": [
+            {**inj, "date": inj["date"].isoformat()}
+            for inj in config.INJURIES
+            if inj.get("status") != "resolved"
+        ],
+        "sobriety_start": config.SOBRIETY_START.isoformat(),
+    }
+
+
+def load_coach_note() -> dict | None:
+    """Reads the Claude-authored Coach's Note cached by a live session (see
+    `python generate.py --facts` + README's "Coach's Note" section). Returns None if it's never
+    been written, or is unreadable — either way the template falls back to the algorithmic
+    buildCoachNote() JS, labeled as an unreviewed draft. A corrupt cache must never break the
+    build."""
+    if not config.COACH_NOTE_PATH.exists():
+        return None
+    try:
+        note = json.loads(config.COACH_NOTE_PATH.read_text())
+        if not isinstance(note, dict) or not note.get("html"):
+            return None
+        return note
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def build_payload(conn) -> dict:
     shoe_list, shoe_sessions = compute_shoes(conn)
     today = date.today()
@@ -998,6 +1109,7 @@ def build_payload(conn) -> dict:
         "freshness": compute_freshness(conn),
         "hr_coverage_pct": compute_hr_coverage(conn),
         "weekly": weekly,
+        "coach_note": load_coach_note(),
         "hr_zones": compute_hr_zone_distribution(conn),
         "pace_distribution": compute_pace_distribution(conn),
         "monthly": compute_monthly(conn),
@@ -1015,6 +1127,15 @@ def build_payload(conn) -> dict:
 
 def main():
     conn = get_db_conn()
+
+    # `--facts` prints the Coach's Note facts bundle instead of building the dashboard — the
+    # input a live Claude Code session reviews before hand-writing data/coach_note.json. See
+    # README's "Coach's Note" section for the workflow.
+    if "--facts" in sys.argv:
+        print(json.dumps(compute_facts_bundle(conn), default=str, indent=2))
+        conn.close()
+        return
+
     payload = build_payload(conn)
     conn.close()
 

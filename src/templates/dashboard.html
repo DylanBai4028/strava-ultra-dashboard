@@ -333,7 +333,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
   <section class="tab active" id="tab-summary">
     <div class="stat-row" id="summaryStats"></div>
     <div class="panel">
-      <div class="panel-head"><h2>Coach's note</h2><span class="hint">generated from this week's numbers as of the last sync — not medical or training advice</span></div>
+      <div class="panel-head"><h2>Coach's note</h2><span id="coachNoteHint" class="hint"></span></div>
       <div class="insight" id="summaryInsight"></div>
     </div>
     <div class="caution" id="injuryBanner"></div>
@@ -1329,14 +1329,25 @@ function buildCoachNote(today, lastWeek, acrSub) {
   // ── Paragraph 2: the plan — volume trend, adherence, and whether the
   // upcoming target is actually achievable at the current rate of progress ──
   const planParts = [];
-  const last4 = fullWeeks.slice(-4), prev4 = fullWeeks.slice(-8, -4);
-  if (last4.length === 4 && prev4.length === 4) {
-    const avgLast = avg(last4.map(w => w.km)), avgPrev = avg(prev4.map(w => w.km));
+  // Excludes weeks inside the Europe deload from both comparison windows — a fixed
+  // last-4-vs-prev-4 comparison straddled the deload/rebuild boundary and produced a
+  // backwards "easing off" reading here on 2026-09-12 while the real trend was a fast
+  // climb. Uses whatever full weeks exist since the deload ended, up to 4 a side;
+  // needs at least 2 a side for a comparison to mean anything, else states the raw
+  // most-recent number instead of forcing a trend claim out of too little data.
+  const postDeloadWeeks = fullWeeks.filter(w => w.week_start >= DATA.config.europe_end);
+  const trendN = Math.min(4, Math.floor(postDeloadWeeks.length / 2));
+  if (trendN >= 2) {
+    const last = postDeloadWeeks.slice(-trendN), prev = postDeloadWeeks.slice(-2 * trendN, -trendN);
+    const avgLast = avg(last.map(w => w.km)), avgPrev = avg(prev.map(w => w.km));
     if (avgPrev > 0) {
       const change = (avgLast - avgPrev) / avgPrev;
       const trendWord = change > VOLUME_TREND_PCT ? "climbing" : change < -VOLUME_TREND_PCT ? "easing off" : "holding steady";
-      planParts.push(`Weekly volume is ${trendWord} — averaging ${avgLast.toFixed(0)} km/wk over the last 4 weeks vs ${avgPrev.toFixed(0)} km/wk the 4 before that.`);
+      planParts.push(`Weekly volume is ${trendWord} — averaging ${avgLast.toFixed(0)} km/wk over the last ${trendN} week${trendN === 1 ? "" : "s"} vs ${avgPrev.toFixed(0)} km/wk the ${trendN} before that (excludes the Europe deload).`);
     }
+  } else if (postDeloadWeeks.length >= 1) {
+    const wk = postDeloadWeeks[postDeloadWeeks.length - 1];
+    planParts.push(`Only ${postDeloadWeeks.length} full week${postDeloadWeeks.length === 1 ? "" : "s"} of data since the Europe deload ended — most recent: ${wk.km} km/wk. Not enough yet for a reliable trend read.`);
   }
   const targetedWeeks = fullWeeks.filter(w => w.target_km != null).slice(-4);
   if (targetedWeeks.length >= 2) {
@@ -1361,7 +1372,8 @@ function buildCoachNote(today, lastWeek, acrSub) {
     else if (g <= 15) steepness = "a solid, plausible build";
     else if (g <= 30) steepness = "a very steep ramp, realistic only with unusually consistent weeks ahead";
     else steepness = "not realistic at the current pace without raising volume sharply very soon, or revisiting the target";
-    planParts.push(`Reaching the ${ramp.peak_km} km/wk peak by ${fmtDate(ramp.peak_date)} from today's ${ramp.current_avg_km} km/wk 4-week average would need about ${g.toFixed(0)}%/week compound growth over the next ${ramp.weeks_remaining} weeks — ${steepness}.`);
+    const avgWeeks = ramp.avg_weeks || 4;
+    planParts.push(`Reaching the ${ramp.peak_km} km/wk peak by ${fmtDate(ramp.peak_date)} from today's ${ramp.current_avg_km} km/wk ${avgWeeks}-week average (since the Europe deload ended) would need about ${g.toFixed(0)}%/week compound growth over the next ${ramp.weeks_remaining} weeks — ${steepness}.`);
   }
 
   // ── Paragraph 3: fitness, load, and readiness vs past races ──────────
@@ -1432,7 +1444,18 @@ function renderSummary() {
     row.appendChild(tile);
   }
 
-  $("#summaryInsight").innerHTML = buildCoachNote(today, lastWeek, acrSub);
+  // Claude-authored note, cached by a live session (see README's "Coach's Note" section) and
+  // embedded at build time — shown indefinitely once one exists, however old, dated so staleness
+  // is visible rather than auto-expiring back to the algorithmic version. The algorithmic
+  // buildCoachNote() below is only a fallback for "never written yet" / a corrupted cache file.
+  const note = DATA.coach_note;
+  if (note && note.html) {
+    $("#summaryInsight").innerHTML = note.html;
+    $("#coachNoteHint").textContent = `Written by Claude · as of ${fmtDate(note.generated_at.slice(0, 10))}`;
+  } else {
+    $("#summaryInsight").innerHTML = buildCoachNote(today, lastWeek, acrSub);
+    $("#coachNoteHint").textContent = "Algorithmic draft — not yet reviewed · generated from this week's numbers as of the last sync";
+  }
 
   renderInjuryBanner();
   renderPhaseStrip();

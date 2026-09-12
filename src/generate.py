@@ -267,6 +267,7 @@ def compute_weekly(conn, daily_effort: dict, ctl_by_date: dict, atl_by_date: dic
             "hours": 0.0,
             "elevation_m": 0.0,
             "run_days": set(),
+            "run_count": 0,
             "weight_sessions": 0,
             "cadence_vals": [],
             "efficiency_vals": [],
@@ -286,6 +287,7 @@ def compute_weekly(conn, daily_effort: dict, ctl_by_date: dict, atl_by_date: dic
             bucket["hours"] += (a["moving_time"] or 0) / 3600
             bucket["elevation_m"] += a["elevation_gain"] or 0
             bucket["run_days"].add(d)
+            bucket["run_count"] += 1  # activities, not distinct days — a double-run day counts 2
             run_dates_sorted.add(d)
             if a["avg_cadence"]:
                 bucket["cadence_vals"].append(a["avg_cadence"])
@@ -390,6 +392,7 @@ def compute_weekly(conn, daily_effort: dict, ctl_by_date: dict, atl_by_date: dic
                 "hours": round(b["hours"], 2),
                 "elevation_m": elevation_m,
                 "run_days": len(b["run_days"]),
+                "run_count": b["run_count"],
                 "weight_sessions": b["weight_sessions"],
                 "back_to_back_pairs": b2b_pairs,
                 "acr": acr,
@@ -1033,6 +1036,30 @@ def compute_facts_bundle(conn) -> dict:
             next_waypoint = {"week_start": d.isoformat(), "target_km": km}
             break
 
+    # Completed weeks with no Training Log entry yet — everything needed to write one without
+    # cross-referencing elsewhere. Only complete (non-partial) weeks are ever loggable, and only
+    # from the Training Log's backfill start (the first full week after the Europe deload ended —
+    # "when training resumed seriously," not the full multi-year history).
+    logged = load_training_log()
+    unlogged_weeks = [
+        {
+            "week_start": w["week_start"],
+            "km": w["km"],
+            "target_km": w["target_km"],
+            "elevation_m": w["elevation_m"],
+            "run_count": w["run_count"],
+            "avg_km_per_run": round(w["km"] / w["run_count"], 1) if w["run_count"] else None,
+            "acr": w["acr"],
+            "acr_status": w["acr_status"],
+            "ctl": w["ctl"],
+            "phase": _phase_for(w["week_start"], phases),
+        }
+        for w in weekly
+        if not w["partial"]
+        and w["week_start"] >= config.EUROPE_END.isoformat()
+        and w["week_start"] not in logged
+    ]
+
     return {
         "today": today_iso,
         "current_phase": next(
@@ -1052,6 +1079,7 @@ def compute_facts_bundle(conn) -> dict:
         "longest_run": compute_longest_run(conn),
         "delirious_west_distance_km": config.DELIRIOUS_WEST_DISTANCE_KM,
         "next_waypoint": next_waypoint,
+        "unlogged_weeks": unlogged_weeks,
         "active_injuries": [
             {**inj, "date": inj["date"].isoformat()}
             for inj in config.INJURIES
@@ -1076,6 +1104,21 @@ def load_coach_note() -> dict | None:
         return note
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def load_training_log() -> dict:
+    """Reads the Claude-authored per-week retrospectives (dict keyed by week_start ISO date —
+    see README's "Training Log" section). Unlike the Coach's Note, there's no algorithmic
+    fallback: a week simply has no row in the template until it's been reviewed and appears here.
+    Returns {} (never None — the template does a plain key lookup) if the file is missing or
+    unreadable; a corrupt cache must never break the build."""
+    if not config.TRAINING_LOG_PATH.exists():
+        return {}
+    try:
+        log = json.loads(config.TRAINING_LOG_PATH.read_text())
+        return log if isinstance(log, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def build_payload(conn) -> dict:
@@ -1110,6 +1153,7 @@ def build_payload(conn) -> dict:
         "hr_coverage_pct": compute_hr_coverage(conn),
         "weekly": weekly,
         "coach_note": load_coach_note(),
+        "training_log": load_training_log(),
         "hr_zones": compute_hr_zone_distribution(conn),
         "pace_distribution": compute_pace_distribution(conn),
         "monthly": compute_monthly(conn),

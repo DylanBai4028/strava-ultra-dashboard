@@ -190,6 +190,38 @@ You can recreate this yourself, with any LLM or by hand — it's just a JSON
 file in the shape above. There's no staleness check: whatever's cached shows
 indefinitely, dated, until you write a newer one.
 
+## The Training Log tab works the same way, but permanently
+
+The Training Log tab (between Locations and Definitions) is the backward-
+looking counterpart: instead of a note that gets rewritten each time
+("where things stand now"), it's a diary entry written once per completed
+week and never touched again ("how that week actually went").
+
+Same review step covers both. `generate.py --facts` includes an
+`unlogged_weeks` list — completed weeks with no log entry yet, each with
+everything needed to write one (km, target, elevation, run count, average
+distance per run, ACR, CTL, training phase) so there's no need to
+cross-reference anything else. A short (1-2 sentence) review for each gets
+appended to `data/training_log.json`, a dict keyed by week_start:
+
+```json
+{
+  "2026-10-12": {
+    "generated_at": "2026-10-19T08:00:00+00:00",
+    "review": "Down week by design — travel cut volume to 60 km against a 90 km target, but that's exactly what the taper into the qualifying race called for. ACR eased back to 0.95, a clean reset before the next build block."
+  }
+}
+```
+(Fabricated, same as the Coach's Note example above — not real data, and not
+the same numbers.)
+
+The table's other columns (runs, avg distance, total km, elevation, ACR,
+CTL) come live from the same weekly data everything else on the dashboard
+uses — only the review sentence is cached. And unlike the Coach's Note,
+**there's no algorithmic fallback here**: a week with no cached entry simply
+doesn't get a row. No "unreviewed" placeholder, nothing to fall back to —
+you just won't see that week until you've actually reviewed it.
+
 ## Data model
 
 See [docs/schema.md](docs/schema.md) for the full table-by-table

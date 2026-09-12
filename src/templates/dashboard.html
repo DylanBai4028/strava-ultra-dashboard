@@ -302,6 +302,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
     <button data-tab="fitness">Fitness</button>
     <button data-tab="context">Context</button>
     <button data-tab="locations">Locations</button>
+    <button data-tab="training-log">Training Log</button>
     <button data-tab="definitions">Definitions</button>
   </nav>
 
@@ -546,6 +547,19 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
         <div class="panel-head"><h2 id="locTableTitle">Run counts</h2></div>
         <div class="panel-body"><table class="loc-table" id="locTable"></table></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ── Training Log tab ────────────────────────────────── -->
+  <!-- Permanent, append-only: a row only appears once a week has actually been reviewed
+       (see README's "Training Log" section) — no placeholder for an unreviewed week. -->
+  <section class="tab" id="tab-training-log">
+    <div class="panel wide">
+      <div class="panel-head">
+        <h2>Training log</h2>
+        <span class="hint">reviewed weekly retrospectives — a row appears once a week has been written up, not before</span>
+      </div>
+      <div class="panel-body"><table class="plan-table" id="trainingLogTable"></table></div>
     </div>
   </section>
 
@@ -1665,6 +1679,30 @@ function renderPhasesTable() {
   $("#phasesTable").innerHTML = html.join("");
 }
 
+// ── Training Log tab ──────────────────────────────────────────────────
+// Stats are pulled live from DATA.weekly at render time, not frozen into the cache — only the
+// review prose is cached (DATA.training_log, keyed by week_start). A week with no cached review
+// simply produces no row; there's no placeholder the way the Coach's Note has an algorithmic
+// fallback. See README's "Training Log" section for how entries get written.
+function renderTrainingLog() {
+  const log = DATA.training_log || {};
+  const weeks = (DATA.weekly || [])
+    .filter(w => !w.partial && log[w.week_start])
+    .slice()
+    .reverse(); // newest first
+  const html = ["<tr><th>Week of</th><th>Runs</th><th>Avg run</th><th>Total km</th><th>Elevation</th><th>ACR</th><th>CTL</th><th>Review</th></tr>"];
+  for (const w of weeks) {
+    const entry = log[w.week_start];
+    const avgRun = w.run_count ? `${(w.km / w.run_count).toFixed(1)} km` : "—";
+    const kmCell = w.target_km != null
+      ? `${w.km} km <span class="status-muted">(target ${Math.round(w.target_km)})</span>`
+      : `${w.km} km`;
+    html.push(`<tr><td>${fmtDate(w.week_start)}</td><td>${w.run_count ?? "—"}</td><td>${avgRun}</td><td>${kmCell}</td><td>${w.elevation_m} m</td><td>${w.acr ?? "—"}</td><td>${w.ctl ?? "—"}</td><td>${entry.review}</td></tr>`);
+  }
+  $("#trainingLogTable").innerHTML = html.length > 1 ? html.join("")
+    : `<tr><td colspan="8" class="empty-msg">No weeks reviewed yet.</td></tr>`;
+}
+
 // ── Locations tab (city -> suburb frequency bubbles) ─────────────────
 let locSelected = null; // index into location_heatmap, or null for the city view
 function renderLocations() {
@@ -2105,6 +2143,7 @@ const TAB_RENDERERS = {
   fitness: [renderEfficiency, renderHrZones, renderPaceDistribution, renderPacing, renderCadence, renderBestEfforts, renderLongestRun, renderRaceHistory],
   context: [renderWeight, renderConsistency, renderShoes, renderNight, renderGroupSolo, renderTemp, renderYearly],
   locations: [renderLocations],
+  "training-log": [renderTrainingLog],
   definitions: [], // static reference content — no data-driven rendering needed
   kosci: [renderKosciProfile, renderCheckpointTable],
 };

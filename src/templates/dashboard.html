@@ -181,6 +181,8 @@ svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
 .plan-table tr:last-child td { border-bottom: none; }
 .plan-table tr.current { background: var(--accent-tint); }
 .plan-table .status-good { color: var(--good); } .plan-table .status-warning { color: var(--warning); } .plan-table .status-muted { color: var(--ink-muted); }
+.year-select { font: inherit; font-size: 12.5px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color-scheme: light dark; }
+.stats-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 32px; }
 
 /* ── Location bubbles ───────────────────────────────────── */
 .bubble-wrap { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; justify-content: flex-start; padding: 10px 0; }
@@ -414,6 +416,17 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
   <section class="tab" id="tab-fitness">
     <div class="grid">
 
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2>Training stats</h2>
+          <select id="statsYearSelect" class="year-select"></select>
+        </div>
+        <div class="stats-cols">
+          <table class="plan-table" id="statsYearTable"></table>
+          <table class="plan-table" id="statsAllTimeTable"></table>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-head">
           <h2>Aerobic efficiency</h2>
@@ -422,7 +435,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
         <div class="panel-body"><svg class="chart" id="chartEfficiency"></svg></div>
       </div>
 
-      <div class="panel">
+      <div class="panel wide">
         <div class="panel-head">
           <h2>HR zone distribution</h2>
           <span id="hrCoverageHint" class="hint"></span>
@@ -430,7 +443,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
         <div class="panel-body"><svg class="chart" id="chartHrZones"></svg></div>
       </div>
 
-      <div class="panel">
+      <div class="panel wide">
         <div class="panel-head">
           <h2>Pace distribution</h2>
           <span class="hint">reflects the date range selected above</span>
@@ -487,7 +500,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h2>Consistency score</h2><span class="hint">run days / week</span></div>
+        <div class="panel-head"><h2>Consistency score</h2><span class="hint">% of days run, per week · line = 4-week average</span></div>
         <div class="panel-body"><svg class="chart" id="chartConsistency"></svg></div>
       </div>
 
@@ -497,18 +510,12 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h2>Night runs</h2><span class="hint">before 6am or after 8pm, by month</span></div>
+        <div class="panel-head"><h2>Night runs</h2><span class="hint">cumulative hours before 6am or after 8pm, since Jan 2023</span></div>
         <div class="panel-body"><svg class="chart" id="chartNight"></svg></div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h2>Group vs solo</h2><span class="hint">by month</span></div>
-        <div class="panel-body"><svg class="chart" id="chartGroupSolo"></svg></div>
-        <div class="legend" id="groupSoloLegend"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><h2>Temperature trend</h2><span class="hint">monthly avg, outdoor runs · some months weather-estimated (device gap)</span></div>
+        <div class="panel-head"><h2>Temperature trend</h2><span class="hint">monthly avg (line) and range (band), outdoor runs · some months weather-estimated (device gap)</span></div>
         <div class="panel-body"><svg class="chart" id="chartTemp"></svg></div>
       </div>
 
@@ -1015,7 +1022,7 @@ function spikeMarker(cx, topY, reason) {
   path.addEventListener("mouseleave", hideTooltip);
   return path;
 }
-function lineChart(svgId, { xLabels, series, target, targetCompare = false, bands, yBands, height = 210, yFormat, onClick, xLabelFormat, padL = 40 }) {
+function lineChart(svgId, { xLabels, series, target, targetCompare = false, bands, yBands, rangeBand, height = 210, yFormat, onClick, xLabelFormat, padL = 40, yZeroBaseline = true }) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const W = svg.parentElement.clientWidth || 600;
@@ -1025,9 +1032,22 @@ function lineChart(svgId, { xLabels, series, target, targetCompare = false, band
 
   const allY = series.flatMap(s => s.values.map(v => v.y)).filter(v => v != null);
   if (target) allY.push(...target.filter(v => v != null));
+  if (rangeBand) allY.push(...rangeBand.lowValues.filter(v => v != null), ...rangeBand.highValues.filter(v => v != null));
   if (!allY.length) { svg.parentElement.insertAdjacentHTML("beforeend", ""); return; }
-  const yMax = niceMax(Math.max(...allY, 0.001));
-  const yLo = Math.min(0, ...allY);
+  // Forcing a zero floor is right for volume/count charts (area fills rely on it, and 0 is a
+  // meaningful baseline) but wrong for a chart like cadence or pace, where the data clusters in
+  // a narrow band far from zero — forcing 0 in then crams the real variation into a sliver of
+  // the chart. yZeroBaseline: false pads around the data's own range instead.
+  let yMax, yLo;
+  if (yZeroBaseline) {
+    yMax = niceMax(Math.max(...allY, 0.001));
+    yLo = Math.min(0, ...allY);
+  } else {
+    const dataMax = Math.max(...allY), dataMin = Math.min(...allY);
+    const pad = (dataMax - dataMin) * 0.15 || Math.abs(dataMax) * 0.1 || 1;
+    yMax = dataMax + pad;
+    yLo = dataMin - pad;
+  }
   const xScale = makeScale(0, Math.max(xLabels.length - 1, 1), padL, padL + plotW);
   const yScale = makeScale(yLo, yMax, padT + plotH, padT);
 
@@ -1048,6 +1068,22 @@ function lineChart(svgId, { xLabels, series, target, targetCompare = false, band
       const y0 = yScale(Math.min(yb.yMax, yMax)), y1 = yScale(Math.max(yb.yMin, yLo));
       if (y1 <= y0) continue;
       svg.appendChild(svgEl("rect", { x: padL, y: y0, width: plotW, height: y1 - y0, fill: yb.color }));
+    }
+  }
+  // data-driven range band (e.g. monthly min/max temp) — a filled polygon between two value
+  // series at matching x-indices, distinct from yBands' fixed horizontal reference zones. Drawn
+  // before the series loop so the average/primary line renders on top of it.
+  if (rangeBand) {
+    const pts = [];
+    for (let i = 0; i < rangeBand.lowValues.length; i++) {
+      const lo = rangeBand.lowValues[i], hi = rangeBand.highValues[i];
+      if (lo == null || hi == null) continue;
+      pts.push({ x: i, lo, hi });
+    }
+    if (pts.length) {
+      const topPts = pts.map(p => `${xScale(p.x)},${yScale(p.hi)}`).join(" L ");
+      const botPts = pts.slice().reverse().map(p => `${xScale(p.x)},${yScale(p.lo)}`).join(" L ");
+      svg.appendChild(svgEl("path", { d: `M ${topPts} L ${botPts} Z`, class: "mark-area", fill: rangeBand.color || "var(--ink-muted)" }));
     }
   }
 
@@ -1839,6 +1875,53 @@ function renderLoadTrend() {
     <span class="item"><span class="swatch" style="background:var(--s2)"></span>TSB (form)</span>`;
 }
 
+// ── Fitness tab: Strava-style stats table ────────────────────────────
+// Year selector is local to this panel (like Best Efforts' own window
+// buttons) — independent of the tab-level range control, which governs the
+// other Fitness-tab charts. "Runs" not "Activities": Strava's own widget
+// counts every sport type, but this dashboard keeps running and weight
+// training separate everywhere else, so re-using "Activities" here would
+// silently mix conventions.
+function fmtDurationLong(hours) {
+  const totalMin = Math.round(hours * 60);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return `${h.toLocaleString()}h ${String(m).padStart(2, "0")}m`;
+}
+let statsYear = null;
+function statsRows(runCount, km, hours, elevationM) {
+  return `
+    <tr><td>Runs</td><td>${runCount.toLocaleString()}</td></tr>
+    <tr><td>Distance</td><td>${km.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km</td></tr>
+    <tr><td>Time</td><td>${fmtDurationLong(hours)}</td></tr>
+    <tr><td>Elev Gain</td><td>${Math.round(elevationM).toLocaleString()} m</td></tr>`;
+}
+function renderYearlyStats() {
+  const yearly = DATA.yearly || [];
+  if (!yearly.length) return;
+  const sel = $("#statsYearSelect");
+  if (!sel.options.length) {
+    [...yearly].reverse().forEach(y => {
+      const opt = document.createElement("option");
+      opt.value = y.year; opt.textContent = y.year;
+      sel.appendChild(opt);
+    });
+    statsYear = yearly[yearly.length - 1].year; // most recent, matches the screenshot's default
+    sel.value = statsYear;
+    sel.addEventListener("change", () => { statsYear = sel.value; renderYearlyStatsTables(); });
+  }
+  renderYearlyStatsTables();
+}
+function renderYearlyStatsTables() {
+  const yearly = DATA.yearly || [];
+  const y = yearly.find(row => row.year === statsYear) || yearly[yearly.length - 1];
+  $("#statsYearTable").innerHTML = statsRows(y.run_count, y.km, y.hours, y.elevation_m);
+  const allTime = yearly.reduce((a, row) => ({
+    run_count: a.run_count + row.run_count, km: a.km + row.km,
+    hours: a.hours + row.hours, elevation_m: a.elevation_m + row.elevation_m,
+  }), { run_count: 0, km: 0, hours: 0, elevation_m: 0 });
+  $("#statsAllTimeTable").innerHTML = `<tr><th colspan="2">All-Time</th></tr>` + statsRows(allTime.run_count, allTime.km, allTime.hours, allTime.elevation_m);
+}
+
 function renderEfficiency() {
   const wk = recentWeeks().filter(w => w.aerobic_efficiency != null);
   if (!wk.length) { $("#chartEfficiency").parentElement.innerHTML = '<div class="empty-msg">No qualifying easy-run data yet (needs HR zones from a sync).</div>'; return; }
@@ -1875,7 +1958,8 @@ function renderHrZones() {
       tooltip: `<div class="tt-title">${ZONE_LABELS[i]}</div><div class="tt-row"><span>${pct.toFixed(1)}% of time</span><span>${fmtHMS(Math.round(secs))}</span></div>`,
     };
   });
-  hBarChart("chartHrZones", { rows, max: 100, height: 200 });
+  rows.reverse(); // Z5 (max) at top, Z1 (recovery) at bottom
+  hBarChart("chartHrZones", { rows, max: 100, height: 240 });
   const cov = DATA.hr_coverage_pct;
   $("#hrCoverageHint").textContent = (cov != null ? `${cov}% HR coverage · ` : "") + "reflects the date range selected above";
 }
@@ -1905,7 +1989,7 @@ function renderPaceDistribution() {
       tooltip: `<div class="tt-title">${PACE_LABELS[i]}</div><div class="tt-row"><span>${pct.toFixed(1)}% of time</span><span>${fmtHMS(Math.round(secs))}</span></div>`,
     };
   });
-  hBarChart("chartPaceDist", { rows, max: 100, height: 200 });
+  hBarChart("chartPaceDist", { rows, max: 100, height: 240 });
 }
 
 function renderPacing() {
@@ -1918,7 +2002,7 @@ function renderPacing() {
     label: `${r.date}`, color: colors[i % colors.length],
     values: r.splits.map((s, j) => ({ x: j, y: s.pace_sec_per_km, meta: { title: `${r.name} — km ${s.km}` } })),
   }));
-  lineChart("chartPacing", { xLabels, series, height: 210, yFormat: fmtPace, xLabelFormat: (d) => `${d}k`, padL: 52 });
+  lineChart("chartPacing", { xLabels, series, height: 210, yFormat: fmtPace, xLabelFormat: (d) => `${d}k`, padL: 52, yZeroBaseline: false });
   $("#pacingLegend").innerHTML = runs.map((r, i) => `<span class="item"><span class="swatch" style="background:${colors[i % colors.length]}"></span>${r.date} — ${r.name}</span>`).join("");
 }
 
@@ -1927,30 +2011,72 @@ function renderCadence() {
   if (!wk.length) { $("#chartCadence").parentElement.innerHTML = '<div class="empty-msg">No cadence data yet.</div>'; return; }
   const xLabels = wk.map(w => w.week_start);
   const values = wk.map((w, i) => ({ x: i, y: w.avg_cadence, meta: { title: defaultXLabel(w.week_start) } }));
-  lineChart("chartCadence", { xLabels, series: [{ label: "Cadence", color: "var(--s3)", values }], bands: calendarBands(xLabels), height: 200, yFormat: (v) => Math.round(v) + " spm" });
+  lineChart("chartCadence", { xLabels, series: [{ label: "Cadence", color: "var(--s3)", values }], bands: calendarBands(xLabels), height: 200, yFormat: (v) => Math.round(v) + " spm", yZeroBaseline: false });
 }
 
+// Checked 2026-09-12: run_days has real variance across 207 weeks (19/11/15/32/
+// 33/35/35/27 weeks at 0 through 7 days) — worth keeping, but a single week is
+// N≤7 and genuinely noisy. Converted to % (matches the Year-over-Year panel's
+// framing of the same metric) and given a rolling 4-week average line so
+// direction reads through the week-to-week wobble, not just the bars alone.
 function renderConsistency() {
   const wk = recentWeeks();
   const xLabels = wk.map(w => w.week_start);
+  const pct = wk.map(w => 100 * w.run_days / 7);
   barChart("chartConsistency", {
     xLabels,
-    series: [{ label: "Run days", color: "var(--s2)", values: wk.map(w => w.run_days) }],
+    series: [{ label: "Consistency", color: "var(--s2)", values: pct }],
     bands: calendarBands(xLabels),
     outline: wk.map(w => w.partial),
-    yFormat: (v) => Math.round(v),
+    yMax: 100,
+    yFormat: (v) => Math.round(v) + "%",
   });
+  // Drawn manually onto the SVG barChart() just populated, reusing its internal
+  // coordinate math (padL/padR/padT/padB/bw) — a one-off overlay rather than a
+  // new combo-chart capability added to the shared component for a single chart.
+  const svg = document.getElementById("chartConsistency");
+  const W = svg.parentElement.clientWidth || 600;
+  const height = 210, padL = 40, padR = 12, padT = 10, padB = 26;
+  const plotW = W - padL - padR, plotH = height - padT - padB;
+  const bw = plotW / xLabels.length;
+  const yScale = (v) => padT + plotH - (v / 100) * plotH;
+  const rollN = 4;
+  const rollPts = [];
+  for (let i = rollN - 1; i < pct.length; i++) {
+    const avg = pct.slice(i - rollN + 1, i + 1).reduce((a, b) => a + b, 0) / rollN;
+    rollPts.push(`${padL + bw * i + bw / 2},${yScale(avg)}`);
+  }
+  if (rollPts.length > 1) {
+    svg.appendChild(svgEl("path", { d: `M ${rollPts.join(" L ")}`, fill: "none", stroke: "var(--accent-strong)", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  }
 }
 
+// Checked 2026-09-12 whether weight sessions get sacrificed when running volume
+// spikes (a plausible "first thing cut under load" hypothesis) — corr(weekly_km,
+// weight_sessions) across all 207 weeks = 0.029, essentially zero. Not supported;
+// the recent drop to zero is fully explained by Europe + the elbow injury, not a
+// volume trade-off. So the chart shades the actual cause (injury window) instead
+// of implying a load-driven story the data doesn't back, and the hint reports
+// habit consistency (the more diagnostic read for strength work) rather than a
+// raw weekly count.
+function injuryBands(affects) {
+  return (DATA.injuries || [])
+    .filter(i => i.status !== "resolved" && (i.affects || []).includes(affects))
+    .map(i => ({ start: i.date, end: todayISO(), color: "var(--band-deload)" }));
+}
 function renderWeight() {
   const wk = recentWeeks();
   const xLabels = wk.map(w => w.week_start);
   const upperBodyPaused = activeInjuries().some(i => (i.affects || []).includes("weight_training"));
-  $("#weightHint").textContent = upperBodyPaused ? "sessions / week · ⚠ upper-body paused (elbow)" : "sessions / week";
+  const recent8 = (DATA.weekly || []).slice(-8);
+  const withSession = recent8.filter(w => w.weight_sessions > 0).length;
+  let hint = `${withSession} of last ${recent8.length} weeks had a session`;
+  if (upperBodyPaused) hint += " · ⚠ paused (elbow)";
+  $("#weightHint").textContent = hint;
   barChart("chartWeight", {
     xLabels,
     series: [{ label: "Sessions", color: "var(--s4)", values: wk.map(w => w.weight_sessions) }],
-    bands: calendarBands(xLabels),
+    bands: [...calendarBands(xLabels), ...injuryBands("weight_training")],
     outline: wk.map(w => w.partial),
     yFormat: (v) => Math.round(v),
   });
@@ -2057,36 +2183,49 @@ function renderYearly() {
   barChart("chartYearlyConsistency", { xLabels, xLabelFormat, series: [{ label: "%", color: "var(--s2)", values: yr.map(y => y.avg_consistency_pct) }], yFormat: (v) => Math.round(v) + "%", height: 180 });
 }
 
+// Checked 2026-09-12: night runs are 79 of 1,097 total (7.2%), and 0-2 per
+// month for the last year — a monthly count bar bounces between 0/1/2, which
+// is close to pure noise, not a trend. It also treated a 20-minute jog and a
+// 4-hour night effort identically (count, not duration). Switched to
+// cumulative hours since config.LOAD_TREND_START (the same cutoff already
+// used elsewhere to skip the sparse pre-2023 stub): fixes the small-N-per-
+// bucket noise by aggregating instead of bucketing, and reframes this as
+// banked race-readiness (relevant to Kosci's 3am start and Delirious West's
+// multi-night cutoff) rather than a lifestyle trivia count.
 function renderNight() {
-  const mo = recentMonths(6);
+  const startMonth = DATA.config.load_trend_start.slice(0, 7);
+  const mo = (DATA.monthly || []).filter(m => m.month >= startMonth);
   if (!mo.length) { $("#chartNight").parentElement.innerHTML = '<div class="empty-msg">No data yet.</div>'; return; }
   const xLabels = mo.map(m => m.month);
-  barChart("chartNight", {
-    xLabels,
-    series: [{ label: "Night runs", color: "var(--s7)", values: mo.map(m => m.night_run_count) }],
-    bands: calendarBands(xLabels),
-    yFormat: (v) => Math.round(v),
+  let cum = 0;
+  const values = mo.map((m, i) => {
+    cum += m.night_hours;
+    return {
+      x: i, y: Math.round(cum * 10) / 10,
+      meta: { title: `${fmtMonth(m.month)} — +${m.night_hours.toFixed(1)}h this month (${m.night_run_count} runs)` },
+    };
   });
-}
-
-function renderGroupSolo() {
-  const mo = recentMonths(6);
-  if (!mo.length) return;
-  const xLabels = mo.map(m => m.month);
-  const series = [
-    { label: "Solo", color: "var(--s1)", values: mo.map(m => m.solo_count) },
-    { label: "Group", color: "var(--s4)", values: mo.map(m => m.group_count) },
-  ];
-  barChart("chartGroupSolo", { xLabels, series, stacked: true, bands: calendarBands(xLabels), yFormat: (v) => Math.round(v) });
-  $("#groupSoloLegend").innerHTML = series.map(s => `<span class="item"><span class="swatch" style="background:${s.color}"></span>${s.label}</span>`).join("");
+  lineChart("chartNight", { xLabels, series: [{ label: "Cumulative night hours", color: "var(--s7)", values, area: true }], bands: calendarBands(xLabels), height: 190, yFormat: (v) => v.toFixed(0) + "h" });
 }
 
 function renderTemp() {
   const mo = recentMonths(6).filter(m => m.avg_temp != null);
   if (!mo.length) { $("#chartTemp").parentElement.innerHTML = '<div class="empty-msg">No temperature data yet.</div>'; return; }
   const xLabels = mo.map(m => m.month);
-  const values = mo.map((m, i) => ({ x: i, y: m.avg_temp, meta: { title: fmtMonth(m.month) } }));
-  lineChart("chartTemp", { xLabels, series: [{ label: "Avg temp", color: "var(--s6)", values, area: true }], bands: calendarBands(xLabels), height: 190, yFormat: (v) => Math.round(v) + "°C" });
+  const values = mo.map((m, i) => ({ x: i, y: m.avg_temp, meta: { title: `${fmtMonth(m.month)} — range ${m.min_temp}–${m.max_temp}°C` } }));
+  // Range band (min/max) drawn behind the average line — tested whether heat
+  // measurably hurts aerobic efficiency before proposing this (2026-09-12):
+  // corr(monthly avg temp, weekly aerobic_efficiency) = -0.16 (weak), and
+  // <18°C vs ≥22°C efficiency (0.0216 vs 0.0212) is practically the same. Not
+  // a real effect in this data, so this shows the honest spread of conditions
+  // trained in — useful for hydration/pacing context — without claiming a
+  // performance link the numbers don't support.
+  lineChart("chartTemp", {
+    xLabels,
+    series: [{ label: "Avg temp", color: "var(--s6)", values }],
+    rangeBand: { lowValues: mo.map(m => m.min_temp), highValues: mo.map(m => m.max_temp), color: "var(--s6)" },
+    bands: calendarBands(xLabels), height: 190, yFormat: (v) => Math.round(v) + "°C",
+  });
 }
 
 // ── Kosci Miler Key Info ─────────────────────────────────────────────
@@ -2140,8 +2279,8 @@ const TAB_RENDERERS = {
   summary: [renderSummary],
   plan: [renderPlanChart, renderPlanCallouts, renderPlanTable, renderPhasesTable],
   load: [renderVolume, renderElevation, renderACR, renderLoadTrend, renderB2B],
-  fitness: [renderEfficiency, renderHrZones, renderPaceDistribution, renderPacing, renderCadence, renderBestEfforts, renderLongestRun, renderRaceHistory],
-  context: [renderWeight, renderConsistency, renderShoes, renderNight, renderGroupSolo, renderTemp, renderYearly],
+  fitness: [renderYearlyStats, renderEfficiency, renderHrZones, renderPaceDistribution, renderPacing, renderCadence, renderBestEfforts, renderLongestRun, renderRaceHistory],
+  context: [renderWeight, renderConsistency, renderShoes, renderNight, renderTemp, renderYearly],
   locations: [renderLocations],
   "training-log": [renderTrainingLog],
   definitions: [], // static reference content — no data-driven rendering needed

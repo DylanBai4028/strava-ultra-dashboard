@@ -522,22 +522,27 @@ def compute_pace_distribution(conn) -> list[dict]:
 
 
 def compute_monthly(conn) -> list[dict]:
+    """Night-run exposure is tracked as *time*, not activity count — a monthly count of night
+    runs is small-N noise (0-2/month for this athlete) and treats a 20-minute jog and a 4-hour
+    night effort identically. Time-in-the-dark is what's actually relevant to Kosci's 3am start
+    and Delirious West's multi-night cutoff, and the template turns this into a cumulative total
+    (the count-vs-time and monthly-vs-cumulative issues were both found by checking the real
+    distribution on 2026-09-12, not assumed).
+    group_count/solo_count were removed the same day: solo running is 87.6% overall and
+    76-96% every month for the last year — already saturated, no real signal to show."""
     rows = conn.execute(f"""
-        SELECT start_local, athlete_count, average_temp, trainer, sport_type
+        SELECT start_local, moving_time, average_temp, trainer, sport_type
         FROM activities
         WHERE sport_type IN {RUNNING_TYPES_SQL} AND start_local IS NOT NULL
     """).fetchall()
-    months = defaultdict(lambda: {"night": 0, "group": 0, "solo": 0, "temps": []})
+    months = defaultdict(lambda: {"night_count": 0, "night_seconds": 0, "temps": []})
     for r in rows:
         dt = datetime.fromisoformat(r["start_local"])
         month_key = f"{dt.year:04d}-{dt.month:02d}"
         b = months[month_key]
         if dt.hour < config.NIGHT_RUN_MORNING_CUTOFF or dt.hour >= config.NIGHT_RUN_EVENING_CUTOFF:
-            b["night"] += 1
-        if (r["athlete_count"] or 1) > 1:
-            b["group"] += 1
-        else:
-            b["solo"] += 1
+            b["night_count"] += 1
+            b["night_seconds"] += r["moving_time"] or 0
         if r["average_temp"] is not None and not r["trainer"]:
             b["temps"].append(r["average_temp"])
 
@@ -547,10 +552,11 @@ def compute_monthly(conn) -> list[dict]:
         result.append(
             {
                 "month": m,
-                "night_run_count": b["night"],
-                "group_count": b["group"],
-                "solo_count": b["solo"],
+                "night_run_count": b["night_count"],
+                "night_hours": round(b["night_seconds"] / 3600, 2),
                 "avg_temp": round(sum(b["temps"]) / len(b["temps"]), 1) if b["temps"] else None,
+                "min_temp": round(min(b["temps"]), 1) if b["temps"] else None,
+                "max_temp": round(max(b["temps"]), 1) if b["temps"] else None,
             }
         )
     return result
@@ -930,13 +936,26 @@ def compute_week_sessions(conn) -> dict:
 
 def compute_yearly(weekly: list[dict]) -> list[dict]:
     """Derived from the already-computed weekly rows rather than re-querying —
-    a calendar-year rollup of total km, total elevation, and average weekly
-    consistency (run_days / 7), for the year-over-year view."""
-    years = defaultdict(lambda: {"km": 0.0, "elevation_m": 0.0, "consistency_vals": []})
+    a calendar-year rollup of total km, elevation, run count, hours, and average
+    weekly consistency (run_days / 7). Feeds both the Year-over-Year charts and
+    the Fitness tab's Strava-style stats table (run_count/hours added for that;
+    the table's "All-Time" block just sums this array client-side — one source
+    of truth, no separate all-time computation)."""
+    years = defaultdict(
+        lambda: {
+            "km": 0.0,
+            "elevation_m": 0.0,
+            "run_count": 0,
+            "hours": 0.0,
+            "consistency_vals": [],
+        }
+    )
     for w in weekly:
         y = years[w["week_start"][:4]]
         y["km"] += w["km"]
         y["elevation_m"] += w["elevation_m"]
+        y["run_count"] += w["run_count"]
+        y["hours"] += w["hours"]
         y["consistency_vals"].append(w["run_days"] / 7)
     result = []
     for year in sorted(years):
@@ -946,6 +965,8 @@ def compute_yearly(weekly: list[dict]) -> list[dict]:
                 "year": year,
                 "km": round(y["km"], 1),
                 "elevation_m": round(y["elevation_m"]),
+                "run_count": y["run_count"],
+                "hours": round(y["hours"], 1),
                 "avg_consistency_pct": (
                     round(100 * sum(y["consistency_vals"]) / len(y["consistency_vals"]), 1)
                     if y["consistency_vals"]
@@ -1132,6 +1153,7 @@ def build_payload(conn) -> dict:
         "config": {
             "kosci_date": config.KOSCI_DATE.isoformat(),
             "delirious_date": config.DELIRIOUS_WEST_DATE.isoformat(),
+            "load_trend_start": config.LOAD_TREND_START.isoformat(),
             "europe_start": config.EUROPE_START.isoformat(),
             "europe_end": config.EUROPE_END.isoformat(),
             "sobriety_start": config.SOBRIETY_START.isoformat(),

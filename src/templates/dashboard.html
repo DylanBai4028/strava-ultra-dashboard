@@ -1697,6 +1697,7 @@ function renderPlanTable() {
     let note = "";
     if (p.race === "kosci") note = "Kosci Miler";
     else if (p.race === "delirious") note = "Delirious West 200";
+    else if (p.race === "bondi_manly") note = "Bondi to Manly (relay leg)";
     else if (p.is_current) note = "in progress";
     html.push(`<tr class="${p.is_current ? "current" : ""}"><td>${fmtDate(p.week_start)}</td><td>${fmt(p.target_km)}</td><td>${p.actual_km != null ? fmt(p.actual_km) : "—"}</td><td class="status-muted">${note}</td></tr>`);
   }

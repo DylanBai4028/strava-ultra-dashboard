@@ -53,6 +53,10 @@ def ensure_strava_credentials():
 KOSCI_DATE = date(2026, 11, 27)
 DELIRIOUS_WEST_DATE = date(2027, 3, 31)
 DELIRIOUS_WEST_DISTANCE_KM = 322  # ~200 mi — course distance, not GPS-measured
+# Tune-up race, not a primary goal race (no countdown tile/stat card of its own,
+# unlike Kosci/Delirious) — added 2026-09-14 for its WEEKLY_KM_TARGETS disruption
+# and race-week band on the Training Plan chart. Running a fast leg on a relay team.
+BONDI_MANLY_RELAY_DATE = date(2026, 10, 24)
 
 # Training calendar
 EUROPE_START = date(2026, 7, 16)
@@ -191,8 +195,14 @@ WEEKLY_KM_TARGETS = [
     (date(2026, 8, 25), 40),
     (date(2026, 9, 8), 80),
     (date(2026, 10, 1), 100),
-    (date(2026, 10, 19), 161),
+    # 19 Oct dropped from the original 161 to 70 (2026-09-14) — Dylan's running a
+    # fast leg on a Bondi to Manly Ultra relay team on the 24th. Front-loaded
+    # distance early in the week, rest Thu/Fri, race Sat, easy run Sun. 26 Oct
+    # stays at 161 (straight back into peak volume, no recovery week). The
+    # "100 mile week" originally meant for 19/26 Oct is extended to 2 Nov instead.
+    (date(2026, 10, 19), 70),
     (date(2026, 10, 26), 161),
+    (date(2026, 11, 2), 161),
     (date(2026, 11, 20), 80),
     (date(2026, 11, 27), None),
     (date(2026, 12, 7), 50),

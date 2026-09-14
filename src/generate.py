@@ -788,6 +788,7 @@ def compute_plan_weeks(weekly: list[dict]) -> list[dict]:
     today_wk = week_start(date.today())
     kosci_wk = week_start(config.KOSCI_DATE)
     dw_wk = week_start(config.DELIRIOUS_WEST_DATE)
+    bondi_manly_wk = week_start(config.BONDI_MANLY_RELAY_DATE)
     wk = week_start(config.WEEKLY_KM_TARGETS[0][0])
     rows = []
     while wk <= dw_wk:
@@ -797,6 +798,14 @@ def compute_plan_weeks(weekly: list[dict]) -> list[dict]:
         else:
             # past week, nothing recorded
             actual = elevation = 0.0 if wk <= today_wk else None
+        if wk == kosci_wk:
+            race = "kosci"
+        elif wk == dw_wk:
+            race = "delirious"
+        elif wk == bondi_manly_wk:
+            race = "bondi_manly"
+        else:
+            race = None
         rows.append(
             {
                 "week_start": wk.isoformat(),
@@ -804,7 +813,7 @@ def compute_plan_weeks(weekly: list[dict]) -> list[dict]:
                 "actual_km": actual,
                 "elevation_m": elevation,
                 "is_current": wk == today_wk,
-                "race": "kosci" if wk == kosci_wk else ("delirious" if wk == dw_wk else None),
+                "race": race,
             }
         )
         wk += timedelta(days=7)

@@ -12,6 +12,8 @@ race in March 2027.
 
 ![Dashboard — Summary tab](docs/images/summary.png)
 ![Dashboard — Load & Safety tab](docs/images/load-safety.png)
+![Dashboard — Kosci Miler Key Info tab](docs/images/kosci-key-info.png)
+![Dashboard — Training Log tab](docs/images/training-log.png)
 
 ## Why this exists
 
@@ -157,6 +159,14 @@ running this against your own Strava data, the dashboard will still show
 There's no separate "your data" vs "my config" split — it's one file,
 meant to be forked and rewritten for your own race.
 
+The same race-week mechanism that flags a primary goal race (a shaded
+band on the mileage chart, a row in the "Coming weeks" table) also
+covers secondary races squeezed into a build block — a speed-focused
+tune-up race, say, that isn't the main goal but still needs its week
+tagged and the mileage target curve adjusted around it. One config date
+constant reuses the whole existing rendering path; no separate UI
+concept needed.
+
 ## The Coach's Note isn't fully automatic — here's what it actually is
 
 The Summary tab's Coach's Note reads like it was written by someone reviewing
@@ -221,6 +231,26 @@ uses — only the review sentence is cached. And unlike the Coach's Note,
 **there's no algorithmic fallback here**: a week with no cached entry simply
 doesn't get a row. No "unreviewed" placeholder, nothing to fall back to —
 you just won't see that week until you've actually reviewed it.
+
+## The Kosci Miler tab is a worked example of a race-specific deep dive
+
+Most of the dashboard is generic — it'd work for any race, any sport. The
+**🏔 Kosci Miler — Key Info** tab is the opposite: a one-off reference page
+built from the actual race documents for one specific event I'm running
+(checkpoints and cutoffs, mandatory gear, drop-bag logistics, an elevation
+profile plotted from the real course GPX, a safety/emergency-contact
+section). It's static content, not computed from Strava data, and it's
+deliberately styled apart from the rest of the dashboard — its own nav
+row, race-branded accent colour — so it reads as "reference doc," not
+another metrics panel.
+
+It's left in as an example of the other kind of thing this approach is
+good for: once you've got a self-contained HTML dashboard and an LLM
+that can read a PDF runner's guide and a GPX file, building a tab like
+this for your own goal race is a small step, not a new project. The
+content itself won't mean anything if you're not running the Kosciuszko
+UTMB Miler — treat it as a template to gut and refill with your own
+race's key info, or delete the tab entirely if you don't want it.
 
 ## Data model
 

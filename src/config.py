@@ -180,10 +180,12 @@ INJURIES = [
     {
         "date": date(2026, 8, 20),
         "title": "Elbow dislocation (Milos, Greece)",
-        "detail": "Reduced on-site, X-ray clear (no fracture). Recovering conservatively — "
-        "rebuilding range of motion before reloading. Upper-body lifting paused; "
-        "running tolerated if pain-free, but fall-risk terrain (technical trail) "
-        "is being approached cautiously until ligament/soft-tissue healing is further along.",
+        "detail": "Reduced on-site, X-ray clear (no fracture). Seen by Active Physiotherapy "
+        "Newtown (31 Aug, 14 Sep 2026) — slow progress restoring full range of motion, but "
+        "cleared as of the 14 Sep visit to return to the gym and upper-body work. Goal now is "
+        "reducing stiffness through more arm use, not rebuilding strength. Running tolerated "
+        "if pain-free, but fall-risk terrain (technical trail) is still approached cautiously "
+        "until soft-tissue healing progresses further.",
         "status": "recovering",
         "affects": ["weight_training", "fall_risk"],
     },

@@ -13,6 +13,7 @@ race in March 2027.
 ![Dashboard — Summary tab](docs/images/summary.png)
 ![Dashboard — Load & Safety tab](docs/images/load-safety.png)
 ![Dashboard — Kosci Miler Key Info tab](docs/images/kosci-key-info.png)
+![Dashboard — Kosci Miler Readiness tab](docs/images/kosci-readiness.png)
 ![Dashboard — Training Log tab](docs/images/training-log.png)
 
 ## Why this exists
@@ -176,7 +177,7 @@ dashboard, using Claude Code as the reviewer:
 
 1. `python generate.py --facts` prints a compact JSON summary of your current
    training data — phase, this week's numbers, recent weeks tagged by which
-   training phase each one falls in, ramp-check math, race readiness, and so
+   training phase each one falls in, plan-adherence math, race readiness, and so
    on. See `compute_facts_bundle()` in `src/generate.py`.
 2. I review that output (in a live Claude Code session) and hand-write a
    short note, saved as `data/coach_note.json`:
@@ -184,7 +185,7 @@ dashboard, using Claude Code as the reviewer:
    {
      "generated_at": "2026-10-03T09:00:00+00:00",
      "based_on": "2026-10-03",
-     "html": "<p><strong>Post-Europe rebuild</strong> — rebuilding fitness from a detrained base toward the target race. 58 km this week against an 85 km/wk target (in progress).</p><p>Weekly volume is behind the target curve this week, but the last 3 full weeks (66 → 78 → 82 km) show a build that's still tracking close to plan overall — one lighter week inside a longer ramp isn't a trend on its own. Reaching the 161 km/wk peak by the target date would need about 15%/week compound growth from here, which is aggressive but consistent with the pace of the last month.</p><p>Fitness (CTL 74) is climbing steadily and form (TSB -12) shows accumulating fatigue typical of a build phase, not a red flag. Load ratio (ACR) is 1.15 — safe band. Fitness is now within the range of where training sat heading into the last few races.</p><p>Longest effort to date (270 km) already covers 84% of the goal race distance. Next waypoint: 100 km/wk in two weeks.</p>"
+     "html": "<p><strong>Post-Europe rebuild</strong> — rebuilding fitness from a detrained base toward the target race. 58 km this week against an 85 km/wk target (in progress).</p><p>Weekly volume is behind the target curve this week, but the last 3 full weeks (66 → 78 → 82 km) show a build that's still tracking close to plan overall — one lighter week inside a longer ramp isn't a trend on its own. Plan adherence is 97% over the last four weeks, and the next planned peak sits 96% above the biggest week so far, a large step worth watching.</p><p>Fitness (CTL 74) is climbing steadily and form (TSB -12) shows accumulating fatigue typical of a build phase, not a red flag. Load ratio (ACR) is 1.15 — safe band. Fitness is now within the range of where training sat heading into the last few races.</p><p>Longest effort to date (270 km) already covers 84% of the goal race distance. Next waypoint: 100 km/wk in two weeks.</p>"
    }
    ```
    (Fabricated numbers, deliberately different from anything shown on the
@@ -251,6 +252,38 @@ this for your own goal race is a small step, not a new project. The
 content itself won't mean anything if you're not running the Kosciuszko
 UTMB Miler — treat it as a template to gut and refill with your own
 race's key info, or delete the tab entirely if you don't want it.
+
+## The Kosci Readiness tab: a scorecard plus a hand-written assessment
+
+Next to the Key Info tab sits a **Readiness** tab for the same race. Its
+scorecard is computed live: each row pairs a current number with a named
+benchmark (fitness vs where it stood at the start of the last edition,
+biggest training week vs the planned peak, plan adherence, vertical metres per
+km vs what the course demands, longest recent run, load ratio). The colours are
+rules of thumb for glanceability, not verdicts, and the numbers beside them are
+the evidence. Above the scorecard is an assessment written the same way as the
+Coach's Note, as a hand-written cache in `data/kosci_report.json`:
+
+```json
+{
+  "generated_at": "2026-10-16T09:00:00+00:00",
+  "based_on": "2026-10-16",
+  "kind": "interim",
+  "html": "<p>Where the build stands against what race day asks for...</p>"
+}
+```
+
+`kind` is `"interim"` until the formal report date (`KOSCI_REPORT_WEEKS_OUT`
+weeks before race day in `src/config.py`), then `"final"`. If the file is
+missing the tab shows the scorecard alone.
+
+**Plan check, not a "required growth rate".** The dashboard used to state the
+compound weekly growth needed to reach the next planned peak. That number got
+worse every day the calendar advanced, even when training was exactly on plan,
+so it couldn't tell a good week from a bad one. It was replaced with three
+numbers that only move when training does: plan adherence (actual vs target km
+over the last four weeks), CTL ramp in points per week, and how far the next
+planned peak week sits above the biggest week of the current build.
 
 ## Data model
 

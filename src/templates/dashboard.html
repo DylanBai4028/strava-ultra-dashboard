@@ -238,10 +238,18 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
 .def-card .context { font-size: 12px; line-height: 1.5; color: var(--ink-muted); }
 .def-card .context strong { color: var(--accent-strong); font-weight: 600; }
 
+
+/* Kosci Readiness scorecard rows */
+.rd-bar { height: 6px; min-width: 90px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.rd-bar > i { display: block; height: 100%; border-radius: 3px; }
+.rd-ok { color: var(--good); } .rd-watch { color: var(--warning); } .rd-gap { color: var(--critical); } .rd-info { color: var(--ink-muted); }
+.rd-ok.fill { background: var(--good); } .rd-watch.fill { background: var(--warning); } .rd-gap.fill { background: var(--critical); } .rd-info.fill { background: var(--ink-muted); }
+.rd-items { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+
 /* ── Kosci Key Info tab — deliberately distinct: own nav row, race-branded
    accent instead of the neutral dashboard palette, so it reads as reference
    material bolted onto the dashboard, not one more regular tab. ────────── */
-.race-nav { display: flex; margin-top: -6px; }
+.race-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -6px; }
 .race-tab-btn {
   font: inherit; font-family: 'Fraunces', serif; font-weight: 600; font-size: 13.5px;
   color: var(--race-accent-strong); background: var(--race-tint);
@@ -310,6 +318,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
 
   <nav class="race-nav" id="raceNav" aria-label="Race reference">
     <button data-tab="kosci" class="race-tab-btn">🏔 Kosci Miler — Key Info</button>
+    <button data-tab="kosci-readiness" class="race-tab-btn">🏔 Kosci Miler — Readiness</button>
   </nav>
 
   <div class="controls" id="rangeControls">
@@ -703,6 +712,29 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
           <div class="context">A rule of thumb, not a hard cutoff — some shoes/runners get more or less life out of a pair.</div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ── Kosci Miler Readiness tab ────────────────────────── -->
+  <section class="tab" id="tab-kosci-readiness">
+    <div class="race-hero">
+      <div>
+        <h2>Kosciuszko UTMB Miler — Readiness</h2>
+        <div class="race-sub" id="rdSub"></div>
+      </div>
+      <div class="race-stats" id="rdStats"></div>
+    </div>
+    <div class="panel wide">
+      <div class="panel-head"><h2>Assessment</h2><span id="rdReportHint" class="hint"></span></div>
+      <div class="insight" id="rdReport"></div>
+    </div>
+    <div class="panel wide">
+      <div class="panel-head"><h2>Scorecard</h2><span class="hint">each row is a live number against a named benchmark · colour = rule of thumb, not a verdict</span></div>
+      <div class="panel-body"><table class="plan-table" id="rdTable"></table></div>
+    </div>
+    <div class="panel wide">
+      <div class="panel-head"><h2>Open items</h2><span class="hint">edit config.KOSCI_OPEN_ITEMS as they close</span></div>
+      <div class="panel-body"><ul class="rd-items" id="rdItems"></ul><div id="rdInjury"></div></div>
     </div>
   </section>
 
@@ -1414,16 +1446,11 @@ function buildCoachNote(today, lastWeek, acrSub) {
       planParts.push(`Against plan: ${verdict} — averaging ${Math.round(pctOfTarget)}% of target volume over the last ${targetedWeeks.length} weeks with a set target.`);
     }
   }
-  const ramp = DATA.ramp_check;
-  if (ramp) {
-    const g = ramp.required_weekly_growth_pct;
-    let steepness;
-    if (g <= 5) steepness = "comfortably achievable from here";
-    else if (g <= 15) steepness = "a solid, plausible build";
-    else if (g <= 30) steepness = "a very steep ramp, realistic only with unusually consistent weeks ahead";
-    else steepness = "not realistic at the current pace without raising volume sharply very soon, or revisiting the target";
-    const avgWeeks = ramp.avg_weeks || 4;
-    planParts.push(`Reaching the ${ramp.peak_km} km/wk peak by ${fmtDate(ramp.peak_date)} from today's ${ramp.current_avg_km} km/wk ${avgWeeks}-week average (since the Europe deload ended) would need about ${g.toFixed(0)}%/week compound growth over the next ${ramp.weeks_remaining} weeks — ${steepness}.`);
+  const pc = DATA.plan_check;
+  if (pc && pc.peak_km && pc.peak_vs_biggest_pct != null) {
+    let line = `The next planned peak is ${pc.peak_km} km in the week of ${fmtDate(pc.peak_date)}, ${pc.peak_vs_biggest_pct}% above the biggest week of this build so far (${pc.biggest_week_km} km).`;
+    if (pc.ctl_ramp_per_week != null) line += ` Fitness has been building at about ${pc.ctl_ramp_per_week} CTL points a week over the last four weeks.`;
+    planParts.push(line);
   }
 
   // ── Paragraph 3: fitness, load, and readiness vs past races ──────────
@@ -2097,8 +2124,43 @@ function renderB2B() {
   });
 }
 
+function renderKosciReadiness() {
+  const k = DATA.kosci_readiness;
+  if (!k) return;
+  $("#rdSub").textContent = k.report_is_due
+    ? `Formal readiness report window is open (due ${fmtDate(k.report_due)}, ${k.weeks_to_race} weeks out).`
+    : `Interim view. The formal report is due ${fmtDate(k.report_due)} (${k.days_to_report} days away, ${DATA.config.kosci_report_weeks_out} weeks before race day); the scorecard below is live and the assessment is refreshed on that date.`;
+  $("#rdStats").innerHTML = [
+    [`${k.days_to_race} d`, "To race day"],
+    [`${k.weeks_to_race} wk`, "Weeks left"],
+    [fmtDate(k.relay_date), "Bondi to Manly relay"],
+    [fmtDate(k.race_week_start), "Race week starts"],
+  ].map(([v, l]) => `<div class="race-stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+  const rep = DATA.kosci_report;
+  if (rep && rep.html) {
+    $("#rdReport").innerHTML = rep.html;
+    $("#rdReportHint").textContent = `Written by Claude · ${rep.kind || "interim"} · as of ${fmtDate(rep.generated_at.slice(0, 10))}`;
+  } else {
+    $("#rdReport").innerHTML = "<p>No assessment written yet. The scorecard below is computed live from the training data.</p>";
+    $("#rdReportHint").textContent = "";
+  }
+
+  const rows = ["<tr><th></th><th>Measure</th><th>Now</th><th>Benchmark</th><th>Progress</th></tr>"];
+  for (const r of k.rows) {
+    const pct = r.ratio == null ? null : Math.max(0, Math.min(100, Math.round(r.ratio * 100)));
+    const bar = pct == null ? "" : `<div class="rd-bar"><i class="rd-${r.status} fill" style="width:${pct}%"></i></div>`;
+    rows.push(`<tr><td class="rd-${r.status}">●</td><td>${r.label}</td><td><strong>${r.value}</strong></td><td class="status-muted">${r.benchmark}</td><td>${bar}</td></tr>`);
+  }
+  $("#rdTable").innerHTML = rows.join("");
+  $("#rdItems").innerHTML = (k.open_items || []).map(t => `<li>${t}</li>`).join("") || "<li>None open.</li>";
+  const inj = activeInjuries();
+  $("#rdInjury").innerHTML = inj.length
+    ? `<p class="hint" style="margin-top:8px">Still recovering: ${inj.map(i => i.title).join("; ")} (see Summary tab).</p>` : "";
+}
+
 function renderShoes() {
-  const shoes = DATA.shoes || [];
+  const shoes = (DATA.shoes || []).filter(s => !s.retired);
   const svg = document.getElementById("chartShoes");
   if (!shoes.length) { svg.parentElement.innerHTML = '<div class="empty-msg">No gear data yet — run strava-sync to fetch shoes.</div>'; return; }
   const threshold = DATA.config.shoe_threshold_km;
@@ -2286,6 +2348,7 @@ const TAB_RENDERERS = {
   "training-log": [renderTrainingLog],
   definitions: [], // static reference content — no data-driven rendering needed
   kosci: [renderKosciProfile, renderCheckpointTable],
+  "kosci-readiness": [renderKosciReadiness],
 };
 const CONTROL_TABS = new Set(["load", "fitness", "context"]); // tabs whose charts use the range/unit controls
 let activeTab = "summary";

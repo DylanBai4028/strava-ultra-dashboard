@@ -21,6 +21,7 @@ DB_PATH = DATA_DIR / "strava.db"
 DASHBOARD_PATH = DATA_DIR / "dashboard.html"
 COACH_NOTE_PATH = DATA_DIR / "coach_note.json"  # Claude-authored, cached — see generate.py
 TRAINING_LOG_PATH = DATA_DIR / "training_log.json"  # per-completed-week retrospectives
+KOSCI_REPORT_PATH = DATA_DIR / "kosci_report.json"  # Claude-authored readiness narrative
 SYNC_LOG = DATA_DIR / "sync.log"
 BACKFILL_LOG = DATA_DIR / "backfill.log"
 CHECKPOINT = DATA_DIR / "backfill_checkpoint.txt"
@@ -51,6 +52,14 @@ def ensure_strava_credentials():
 
 # Race dates
 KOSCI_DATE = date(2026, 11, 27)
+KOSCI_DISTANCE_KM = 161
+KOSCI_ELEVATION_M = 5131
+KOSCI_REPORT_WEEKS_OUT = 6  # the formal readiness report is due this many weeks before race day
+# Unresolved items shown on the Kosci Readiness tab until closed (edit as they resolve).
+KOSCI_OPEN_ITEMS = [
+    "Altitude: see a GP and get altitude sickness medication sorted (UTK 2025: breathlessness and chest tightness above 1,500 m)",
+    "2026 Runner Guide not published yet: checkpoint cutoff clock-times on the Key Info tab are from 2025",
+]
 DELIRIOUS_WEST_DATE = date(2027, 3, 31)
 DELIRIOUS_WEST_DISTANCE_KM = 322  # ~200 mi — course distance, not GPS-measured
 # Tune-up race, not a primary goal race (no countdown tile/stat card of its own,
@@ -217,6 +226,10 @@ WEEKLY_KM_TARGETS = [
 
 # Load monitoring
 SHOE_WEAR_THRESHOLD_KM = 800
+# Shoes to hide from the mileage chart. Strava's own "retired" flag is honoured too, but
+# the sync only refreshes gear still on the athlete profile, so a shoe retired in Strava
+# can keep showing as active here. Add a gear id to hide it immediately.
+RETIRED_SHOE_IDS = set()
 ZONE_SNAPSHOT_INTERVAL_DAYS = 30
 ACUTE_LOAD_DAYS = 7
 CHRONIC_LOAD_DAYS = 28

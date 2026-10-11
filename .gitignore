@@ -8,6 +8,7 @@ data/strava.db-*
 data/dashboard.html
 data/coach_note.json
 data/training_log.json
+data/kosci_report.json
 data/*.log
 data/backfill_checkpoint.txt
 

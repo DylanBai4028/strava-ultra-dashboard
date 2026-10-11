@@ -191,57 +191,75 @@ def compute_race_readiness(ctl_by_date: dict, atl_by_date: dict, today: date) ->
     }
 
 
-def compute_ramp_check(weekly: list[dict], today: date) -> dict | None:
-    """How steep a ramp reaching the next peak-mileage target actually requires,
-    stated as a compound weekly growth rate from the trailing full-week average
-    (up to 4 weeks — see below). Deliberately NOT compared against a fixed "safe"
-    percentage — the flat 10% week-on-week rule was removed 2026-08-27 for firing
-    on every big (normal, for this athlete) training swing. This just states the
-    honest math, which speaks for itself, rather than implying feasibility via a
-    target-curve line on a chart that's never checked against anything.
-    "Peak" = the highest WEEKLY_KM_TARGETS value between today and whichever
-    race (Kosci or Delirious West) comes next; ties keep the earliest date.
+def compute_plan_check(weekly: list[dict], today: date) -> dict | None:
+    """Is the build on plan, and how big is the gap to the next planned peak week?
 
-    The baseline excludes any week inside the Europe deload (config.EUROPE_END) —
-    averaging a deliberate low-volume break in with real training weeks produced a
-    misleadingly inflated "growth needed" figure right after the break ended
-    (contaminated-baseline bug found 2026-09-12: a 33%/week figure off a
-    deload-dragged 35 km/wk baseline, vs ~18%/week off the real 66 km/wk last full
-    week). Uses up to the last 4 full weeks since the break ended; if fewer than 4
-    exist yet, uses however many do (min 1) rather than reaching further back into
-    stale pre-break weeks — `avg_weeks` in the result says how many were used.
-    A similar dip could recur after a race recovery block; not generalized to every
-    config phase here, just this specific, already-hit case."""
+    Replaces the old compound-growth "ramp check" (2026-10-07). That figure,
+    (peak / recent average) ^ (1 / weeks left) - 1, got worse every day the clock
+    moved even when training was exactly on plan, so it could not tell a good week
+    from a bad one. Everything here is anchored to things that only move when
+    training does:
+
+    - adherence_pct: actual km / target km over the last (up to) 4 full weeks that
+      have a target. Rises when you train more, unaffected by the calendar.
+    - ctl_ramp_per_week: CTL points gained per week over the last 4 full weeks, the
+      standard fitness-build-rate check (roughly 3 to 8 points a week is a normal
+      build for sustained training).
+    - peak_vs_biggest_pct: how far the next planned peak week sits above the
+      biggest full week of this build. Improves as soon as a bigger week is run.
+
+    "Peak" = the highest WEEKLY_KM_TARGETS value between today and the next race
+    (Kosci or Delirious West); ties keep the earliest date. Weeks inside the Europe
+    deload (config.EUROPE_END) are excluded from the adherence and biggest-week
+    windows so a deliberate low-volume break can't drag them (the contaminated
+    baseline bug of 2026-09-12). CTL is continuous, so the CTL ramp uses all weeks."""
     full_weeks = [w for w in weekly if not w["partial"]]
     post_deload = [w for w in full_weeks if w["week_start"] >= config.EUROPE_END.isoformat()]
     last4 = post_deload[-4:]
     if not last4:
         return None
-    avg_km = sum(w["km"] for w in last4) / len(last4)
+
+    targeted = [w for w in last4 if w.get("target_km")]
+    actual_km = sum(w["km"] for w in targeted)
+    target_km = sum(w["target_km"] for w in targeted)
+    adherence_pct = round(100 * actual_km / target_km) if target_km > 0 else None
+
+    ctl_ramp = None
+    ctl_window = [w for w in full_weeks[-5:] if w.get("ctl") is not None]
+    if len(ctl_window) >= 2:
+        ctl_ramp = round((ctl_window[-1]["ctl"] - ctl_window[0]["ctl"]) / (len(ctl_window) - 1), 1)
+
+    biggest_km = max(w["km"] for w in post_deload)
+    result = {
+        "weeks_used": len(last4),
+        "actual_km": round(actual_km, 1),
+        "target_km": round(target_km, 1),
+        "adherence_pct": adherence_pct,
+        "ctl_ramp_per_week": ctl_ramp,
+        "biggest_week_km": round(biggest_km, 1),
+        "peak_km": None,
+        "peak_date": None,
+        "peak_vs_biggest_pct": None,
+    }
 
     next_race = min(
         (d for d in (config.KOSCI_DATE, config.DELIRIOUS_WEST_DATE) if d >= today), default=None
     )
-    if next_race is None:
-        return None
-    upcoming = [
-        (d, km) for d, km in config.WEEKLY_KM_TARGETS if today <= d <= next_race and km is not None
-    ]
-    if not upcoming or avg_km <= 0:
-        return None
-    peak_date, peak_km = max(upcoming, key=lambda t: t[1])
-    weeks_remaining = (peak_date - today).days / 7
-    if weeks_remaining <= 0:
-        return None
-    required_growth = (peak_km / avg_km) ** (1 / weeks_remaining) - 1
-    return {
-        "current_avg_km": round(avg_km, 1),
-        "avg_weeks": len(last4),
-        "peak_km": peak_km,
-        "peak_date": peak_date.isoformat(),
-        "weeks_remaining": round(weeks_remaining, 1),
-        "required_weekly_growth_pct": round(required_growth * 100, 1),
-    }
+    upcoming = (
+        [
+            (d, km)
+            for d, km in config.WEEKLY_KM_TARGETS
+            if today <= d <= next_race and km is not None
+        ]
+        if next_race
+        else []
+    )
+    if upcoming and biggest_km > 0:
+        peak_date, peak_km = max(upcoming, key=lambda t: t[1])
+        result["peak_km"] = peak_km
+        result["peak_date"] = peak_date.isoformat()
+        result["peak_vs_biggest_pct"] = round(100 * (peak_km / biggest_km - 1))
+    return result
 
 
 # ── Weekly aggregates ────────────────────────────────────────────────────
@@ -620,7 +638,7 @@ def compute_shoes(conn) -> tuple[list[dict], dict]:
                 "name": s["name"],
                 "brand": s["brand"],
                 "model_name": s["model_name"],
-                "retired": bool(s["retired"]),
+                "retired": bool(s["retired"]) or s["id"] in config.RETIRED_SHOE_IDS,
                 "primary": bool(s["primary_gear"]),
                 "total_km": round((s["total_distance"] or 0) / 1000, 1),
                 "threshold_km": config.SHOE_WEAR_THRESHOLD_KM,
@@ -1104,7 +1122,7 @@ def compute_facts_bundle(conn) -> dict:
             "is_partial": this_week["partial"],
         },
         "recent_weeks": recent_weeks,
-        "ramp_check": compute_ramp_check(weekly, today),
+        "plan_check": compute_plan_check(weekly, today),
         "race_readiness": compute_race_readiness(ctl_by_date, atl_by_date, today),
         "longest_run": compute_longest_run(conn),
         "delirious_west_distance_km": config.DELIRIOUS_WEST_DISTANCE_KM,
@@ -1136,6 +1154,149 @@ def load_coach_note() -> dict | None:
         return None
 
 
+def load_kosci_report() -> dict | None:
+    """Claude-authored Kosci readiness narrative (data/kosci_report.json: generated_at,
+    based_on, kind "interim" or "final", html). Same contract as load_coach_note(): None
+    if missing or unreadable, and the tab then shows the data scorecard alone."""
+    if not config.KOSCI_REPORT_PATH.exists():
+        return None
+    try:
+        report = json.loads(config.KOSCI_REPORT_PATH.read_text())
+        if not isinstance(report, dict) or not report.get("html"):
+            return None
+        return report
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _readiness_status(ratio: float | None, ok_at: float, watch_at: float) -> str:
+    """Traffic-light a progress ratio (value / benchmark). These cut-offs are rules of
+    thumb for glanceability, not physiology: the numbers beside each row are the evidence."""
+    if ratio is None:
+        return "info"
+    return "ok" if ratio >= ok_at else "watch" if ratio >= watch_at else "gap"
+
+
+def compute_kosci_readiness(
+    conn, weekly: list[dict], race_readiness: dict | None, plan_check: dict | None, today: date
+) -> dict:
+    """Data scorecard for the Kosci Readiness tab: where the build stands against what
+    race day asks for. Every row pairs a current number with a named benchmark so it can
+    be checked, and only compares like with like (no growth-rate extrapolation)."""
+    race = config.KOSCI_DATE
+    report_due = race - timedelta(weeks=config.KOSCI_REPORT_WEEKS_OUT)
+    post_deload = [
+        w for w in weekly if not w["partial"] and w["week_start"] >= config.EUROPE_END.isoformat()
+    ]
+    last4 = post_deload[-4:]
+    last_full = post_deload[-1] if post_deload else None
+
+    rows = []
+
+    ctl_now = race_readiness["today"]["ctl"] if race_readiness else None
+    utk = next(
+        (r for r in (race_readiness or {}).get("past_races", []) if "Kosciuszko" in r["race"]), None
+    )
+    if ctl_now is not None and utk:
+        rows.append(
+            {
+                "label": "Fitness (CTL)",
+                "value": f"{ctl_now:.0f}",
+                "benchmark": f"{utk['ctl']:.0f} at the UTK 2025 start",
+                "ratio": ctl_now / utk["ctl"],
+                "status": _readiness_status(ctl_now / utk["ctl"], 0.95, 0.85),
+            }
+        )
+
+    if plan_check and plan_check.get("peak_km"):
+        ratio = plan_check["biggest_week_km"] / plan_check["peak_km"]
+        rows.append(
+            {
+                "label": "Biggest week this build",
+                "value": f"{plan_check['biggest_week_km']:.0f} km",
+                "benchmark": f"{plan_check['peak_km']} km planned peak ({plan_check['peak_date']})",
+                "ratio": ratio,
+                "status": _readiness_status(ratio, 0.85, 0.7),
+            }
+        )
+
+    if plan_check and plan_check.get("adherence_pct") is not None:
+        pct = plan_check["adherence_pct"]
+        rows.append(
+            {
+                "label": "Plan adherence",
+                "value": f"{pct}%",
+                "benchmark": f"{plan_check['actual_km']:.0f} of {plan_check['target_km']:.0f} km "
+                f"target, last {plan_check['weeks_used']} weeks",
+                "ratio": pct / 100,
+                "status": "ok" if 90 <= pct <= 115 else "watch",
+            }
+        )
+
+    kosci_vert = config.KOSCI_ELEVATION_M / config.KOSCI_DISTANCE_KM
+    if last4 and sum(w["km"] for w in last4) > 0:
+        vert = sum(w["elevation_m"] for w in last4) / sum(w["km"] for w in last4)
+        rows.append(
+            {
+                "label": "Vertical per km",
+                "value": f"{vert:.1f} m/km",
+                "benchmark": f"{kosci_vert:.0f} m/km on race day "
+                f"({config.KOSCI_ELEVATION_M:,} m over {config.KOSCI_DISTANCE_KM} km)",
+                "ratio": vert / kosci_vert,
+                "status": _readiness_status(vert / kosci_vert, 0.8, 0.4),
+            }
+        )
+
+    longest = conn.execute(
+        f"""
+        SELECT name, start_local, distance FROM activities
+        WHERE sport_type IN {RUNNING_TYPES_SQL} AND start_local >= ?
+        ORDER BY distance DESC LIMIT 1
+        """,
+        (config.EUROPE_END.isoformat(),),
+    ).fetchone()
+    if longest:
+        rows.append(
+            {
+                "label": "Longest run since Europe",
+                "value": f"{(longest['distance'] or 0) / 1000:.0f} km",
+                "benchmark": f"{longest['start_local'][:10]}, no verdict"
+                + (
+                    f" (longest ever: {ever['distance_km']:.0f} km on {ever['date']})"
+                    if (ever := compute_longest_run(conn))
+                    else ""
+                ),
+                "ratio": None,
+                "status": "info",
+            }
+        )
+
+    if last_full and last_full.get("acr") is not None:
+        acr = last_full["acr"]
+        rows.append(
+            {
+                "label": "Load ratio (ACR)",
+                "value": f"{acr:.2f}",
+                "benchmark": f"safe band {config.ACR_SAFE_LOW} to {config.ACR_SAFE_HIGH}, last full week",
+                "ratio": None,
+                "status": "ok" if config.ACR_SAFE_LOW <= acr <= config.ACR_SAFE_HIGH else "watch",
+            }
+        )
+
+    return {
+        "race_date": race.isoformat(),
+        "days_to_race": (race - today).days,
+        "weeks_to_race": round((race - today).days / 7, 1),
+        "report_due": report_due.isoformat(),
+        "report_is_due": today >= report_due,
+        "days_to_report": (report_due - today).days,
+        "relay_date": config.BONDI_MANLY_RELAY_DATE.isoformat(),
+        "race_week_start": config.KOSCI_RACE_WEEK_START.isoformat(),
+        "rows": rows,
+        "open_items": config.KOSCI_OPEN_ITEMS,
+    }
+
+
 def load_training_log() -> dict:
     """Reads the Claude-authored per-week retrospectives (dict keyed by week_start ISO date —
     see README's "Training Log" section). Unlike the Coach's Note, there's no algorithmic
@@ -1157,6 +1318,8 @@ def build_payload(conn) -> dict:
     daily_effort = compute_daily_effort(conn)
     ctl_by_date, atl_by_date = compute_ctl_atl_series(daily_effort, config.LOAD_TREND_START, today)
     weekly = compute_weekly(conn, daily_effort, ctl_by_date, atl_by_date)
+    race_readiness = compute_race_readiness(ctl_by_date, atl_by_date, today)
+    plan_check = compute_plan_check(weekly, today)
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "config": {
@@ -1170,6 +1333,7 @@ def build_payload(conn) -> dict:
             "acr_safe_low": config.ACR_SAFE_LOW,
             "acr_safe_high": config.ACR_SAFE_HIGH,
             "shoe_threshold_km": config.SHOE_WEAR_THRESHOLD_KM,
+            "kosci_report_weeks_out": config.KOSCI_REPORT_WEEKS_OUT,
             "elevation_spike_pct": config.ELEVATION_SPIKE_PCT,
             "b2b_spike_increase": config.B2B_SPIKE_INCREASE,
             "weekly_km_targets": [[d.isoformat(), km] for d, km in config.WEEKLY_KM_TARGETS],
@@ -1178,8 +1342,10 @@ def build_payload(conn) -> dict:
         },
         "injuries": [{**inj, "date": inj["date"].isoformat()} for inj in config.INJURIES],
         "race_history": [{**r, "date": r["date"].isoformat()} for r in config.RACE_HISTORY],
-        "race_readiness": compute_race_readiness(ctl_by_date, atl_by_date, today),
-        "ramp_check": compute_ramp_check(weekly, today),
+        "race_readiness": race_readiness,
+        "plan_check": plan_check,
+        "kosci_readiness": compute_kosci_readiness(conn, weekly, race_readiness, plan_check, today),
+        "kosci_report": load_kosci_report(),
         "freshness": compute_freshness(conn),
         "hr_coverage_pct": compute_hr_coverage(conn),
         "weekly": weekly,

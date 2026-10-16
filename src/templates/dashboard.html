@@ -29,7 +29,7 @@
   --critical: #b5312f;
   --band-deload: rgba(140,130,118,0.14);
   --band-race: rgba(42,120,214,0.10);
-  --band-safe: rgba(12,163,12,0.08);
+  --band-safe: rgba(12,163,12,0.08); --band-flag-warn: rgba(201,130,0,0.13); --band-flag-crit: rgba(181,49,47,0.15);
   --s1: #2a78d6; --s2: #008300; --s3: #e87ba4; --s4: #eda100;
   --s5: #1baf7a; --s6: #eb6834; --s7: #4a3aa7; --s8: #e34948;
   --hz1: #86b6ef; --hz2: #5598e7; --hz3: #2a78d6; --hz4: #1c5cab; --hz5: #104281;
@@ -45,7 +45,7 @@
     --border: rgba(255,255,255,0.10); --grid: #33291E;
     --accent: #D8AD7C; --accent-strong: #E8C89A; --accent-tint: #2B2318;
     --good: #2fbf2f; --warning: #e0a530; --serious: #e08453; --critical: #e6635f;
-    --band-deload: rgba(190,178,162,0.10); --band-race: rgba(90,150,230,0.12); --band-safe: rgba(47,191,47,0.10);
+    --band-deload: rgba(190,178,162,0.10); --band-race: rgba(90,150,230,0.12); --band-safe: rgba(47,191,47,0.10); --band-flag-warn: rgba(224,165,48,0.15); --band-flag-crit: rgba(230,99,95,0.20);
     --s1: #3987e5; --s2: #2fbf2f; --s3: #d55181; --s4: #c98500;
     --s5: #199e70; --s6: #d95926; --s7: #9085e9; --s8: #e66767;
     --hz1: #184f95; --hz2: #1c5cab; --hz3: #256abf; --hz4: #3987e5; --hz5: #86b6ef;
@@ -61,7 +61,7 @@
   --border: rgba(255,255,255,0.10); --grid: #33291E;
   --accent: #D8AD7C; --accent-strong: #E8C89A; --accent-tint: #2B2318;
   --good: #2fbf2f; --warning: #e0a530; --serious: #e08453; --critical: #e6635f;
-  --band-deload: rgba(190,178,162,0.10); --band-race: rgba(90,150,230,0.12); --band-safe: rgba(47,191,47,0.10);
+  --band-deload: rgba(190,178,162,0.10); --band-race: rgba(90,150,230,0.12); --band-safe: rgba(47,191,47,0.10); --band-flag-warn: rgba(224,165,48,0.15); --band-flag-crit: rgba(230,99,95,0.20);
   --s1: #3987e5; --s2: #2fbf2f; --s3: #d55181; --s4: #c98500;
   --s5: #199e70; --s6: #d95926; --s7: #9085e9; --s8: #e66767;
   --hz1: #184f95; --hz2: #1c5cab; --hz3: #256abf; --hz4: #3987e5; --hz5: #86b6ef;
@@ -201,10 +201,39 @@ svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
 .phase-svg { display: block; width: 100%; height: auto; overflow: visible; }
 
 /* ── Tooltip ────────────────────────────────────────────── */
-.tooltip { position: fixed; pointer-events: none; background: var(--ink); color: var(--page-bg); font-size: 12px; line-height: 1.45; border-radius: 8px; padding: 8px 11px; box-shadow: var(--shadow); z-index: 50; opacity: 0; transform: translateY(2px); transition: opacity .1s; max-width: 240px; }
+.tooltip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); font-size: 12px; line-height: 1.45; border-radius: 10px; padding: 8px 11px; box-shadow: var(--shadow); z-index: 50; opacity: 0; transform: translateY(2px); transition: opacity .1s; max-width: 260px; }
 .tooltip.show { opacity: 1; }
-.tooltip .tt-title { font-weight: 600; margin-bottom: 2px; }
-.tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; }
+.tooltip .tt-title { font-weight: 600; margin-bottom: 3px; color: var(--ink-secondary); font-size: 11.5px; }
+.tooltip .tt-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; font-variant-numeric: tabular-nums; }
+.tooltip .tt-row > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.tooltip .tt-sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex: none; }
+.tooltip .tt-note { color: var(--ink-secondary); margin-top: 3px; }
+
+/* ── Load tab: flags, phase lines, annotations, KPI strip, flagged table ─ */
+.mark-dot:hover { r: 5px; }
+.phase-line { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 2 3; opacity: .75; }
+.avg-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.target-tick { stroke: var(--ink); stroke-width: 2; }
+.zero-line { stroke: var(--ink-muted); stroke-width: 1; }
+.annot { font-size: 11px; fill: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.end-label { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.load-head { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.takeaway { font-size: 15px; line-height: 1.5; color: var(--ink-secondary); max-width: 80ch; }
+.takeaway b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.panel-note { font-size: 12.5px; color: var(--ink-muted); }
+.panel-note[hidden] { display: none; }
+.ring-key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--warning); background: transparent; vertical-align: -1px; flex: none; }
+.ring-key.crit { border-color: var(--critical); background: var(--critical); }
+.flag-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.flag-table th { text-align: left; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-muted); border-bottom: 1px solid var(--border); padding: 0; white-space: nowrap; }
+.flag-table th button { all: unset; cursor: pointer; display: block; padding: 7px 10px; width: 100%; box-sizing: border-box; }
+.flag-table th button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.flag-table th.num, .flag-table td.num { text-align: right; }
+.flag-table th.num button { text-align: right; }
+.flag-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.flag-table tbody tr { cursor: pointer; }
+.flag-table tbody tr:hover, .flag-table tbody tr:focus-visible { background: var(--surface-2); outline: none; }
+.flag-table td.note-cell { color: var(--ink-secondary); }
 
 /* ── Modal (drill-down) ─────────────────────────────────── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
@@ -289,7 +318,9 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
 .cp-table .no { color: var(--ink-muted); }
 
 @media (max-width: 640px) {
-  .grid { grid-template-columns: 1fr; }
+  .grid, .grid.dominant { grid-template-columns: minmax(0, 1fr); } /* .dominant's 520px minimum used to overflow phones */
+  .flag-table th:last-child, .flag-table td:last-child { display: none; } /* drop the Note column on phones */
+  .flag-table th button, .flag-table td { padding-left: 6px; padding-right: 6px; }
   .panel { padding: 14px; }
 }
 </style>
@@ -327,6 +358,7 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
       <button data-weeks="8">8w</button>
       <button data-weeks="12" class="active">12w</button>
       <button data-weeks="26">26w</button>
+      <button data-weeks="52">52w</button>
       <button data-weeks="all">All</button>
     </div>
     <div class="seg" id="unitSeg">
@@ -379,14 +411,28 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
 
   <!-- ── Load & Safety tab ───────────────────────────────── -->
   <section class="tab" id="tab-load">
+    <div class="load-head">
+      <p class="takeaway" id="loadTakeaway"></p>
+      <div class="stat-row" id="loadKpis"></div>
+    </div>
     <div class="grid dominant">
 
       <div class="panel wide">
         <div class="panel-head">
-          <h2 id="volumeTitle">Weekly volume</h2>
-          <span class="hint">Click a point for that week's sessions · shaded = deload / race-prep</span>
+          <h2 id="volumeTitle">Weekly distance (km)</h2>
+          <span class="hint">Click a bar for that week's sessions · shaded = deload / race-prep</span>
         </div>
         <div class="panel-body"><svg class="chart" id="chartVolume"></svg></div>
+        <div class="legend" id="volumeLegend"></div>
+      </div>
+
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2 id="vsPrevTitle">Distance against the previous 4 weeks</h2>
+          <span class="hint">% above or below the average of the 4 weeks before</span>
+        </div>
+        <div class="panel-body"><svg class="chart" id="chartVsPrev"></svg></div>
+        <div class="panel-note" id="vsPrevNote" hidden></div>
       </div>
 
       <div class="panel wide">
@@ -399,13 +445,23 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
 
       <div class="panel wide">
         <div class="panel-head">
-          <h2>Fitness, fatigue &amp; form</h2>
-          <span class="hint">CTL (42d fitness) · ATL (7d fatigue) · TSB (form = CTL − ATL)</span>
+          <h2>Fitness &amp; fatigue</h2>
+          <span class="hint">CTL (42d fitness) · ATL (7d fatigue)</span>
         </div>
         <div class="stat-row" id="loadTrendStats"></div>
         <div class="panel-body"><svg class="chart" id="chartLoadTrend"></svg></div>
+        <div class="panel-note" id="loadTrendNote" hidden></div>
         <div class="legend" id="loadTrendLegend"></div>
         <div class="hint">Estimated from Strava Relative Effort, not a lab measurement — read trend direction, not the absolute numbers.</div>
+      </div>
+
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2>Form (TSB)</h2>
+          <span class="hint">Fitness minus fatigue · below zero = carrying more fatigue than fitness</span>
+        </div>
+        <div class="panel-body"><svg class="chart" id="chartForm"></svg></div>
+        <div class="panel-note" id="formNote" hidden></div>
       </div>
 
       <div class="panel">
@@ -414,8 +470,27 @@ footer { text-align: center; font-size: 11.5px; color: var(--ink-muted); padding
       </div>
 
       <div class="panel">
+        <div class="panel-head"><h2>Metres climbed per km</h2><span class="hint">elevation ÷ distance run</span></div>
+        <div class="panel-body"><svg class="chart" id="chartMpk"></svg></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Longest run each week</h2></div>
+        <div class="panel-body"><svg class="chart" id="chartLongRun"></svg></div>
+      </div>
+
+      <div class="panel">
         <div class="panel-head"><h2>Back-to-back days</h2><span class="hint">consecutive running days / week</span></div>
         <div class="panel-body"><svg class="chart" id="chartB2B"></svg></div>
+      </div>
+
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2>Flagged weeks</h2>
+          <span class="hint">Full weeks with an ACR of warning or critical · click a heading to sort, a row for that week's sessions</span>
+        </div>
+        <div class="panel-body"><table class="flag-table" id="flagTable"></table></div>
+        <div class="panel-note" id="flagNote" hidden></div>
       </div>
 
     </div>
@@ -910,7 +985,17 @@ function fmtHMS(sec) { if (sec == null) return "–"; const h = Math.floor(sec /
 function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
 
 const tooltipEl = $("#tooltip");
-function showTooltip(x, y, html) { tooltipEl.innerHTML = html; tooltipEl.style.left = (x + 14) + "px"; tooltipEl.style.top = (y + 14) + "px"; tooltipEl.classList.add("show"); }
+function showTooltip(x, y, html) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add("show");
+  // Measure after content is in, then keep the popover inside the viewport (matters at phone width).
+  const r = tooltipEl.getBoundingClientRect();
+  let left = x + 14, top = y + 14;
+  if (left + r.width > window.innerWidth - 8) left = Math.max(8, x - 14 - r.width);
+  if (top + r.height > window.innerHeight - 8) top = Math.max(8, y - 14 - r.height);
+  tooltipEl.style.left = left + "px";
+  tooltipEl.style.top = top + "px";
+}
 function hideTooltip() { tooltipEl.classList.remove("show"); }
 
 const modalBackdrop = $("#modalBackdrop"), modalTitle = $("#modalTitle"), modalBody = $("#modalBody");
@@ -1039,6 +1124,111 @@ function niceMax(v) { if (v <= 0) return 1; const mag = Math.pow(10, Math.floor(
 function xLabelGte(label, boundary) { return label >= boundary.slice(0, label.length); }
 function xLabelGt(label, boundary) { return label > boundary.slice(0, label.length); }
 
+// ── Load tab: weekly analysis helpers ──────────────────────────────────
+// Flags and trailing averages are computed on the FULL weekly history (DATA.weekly) and looked up
+// by week_start, so a range that starts mid-history still gets correct values at its left edge.
+const WEEK_INDEX = new Map((DATA.weekly || []).map((w, i) => [w.week_start, i]));
+// The first weeks of history always read "critical" (no 28-day baseline yet), so they never flag.
+const FLAG_WARMUP_WEEKS = 4;
+function weekHistoryIndex(w) { return WEEK_INDEX.has(w.week_start) ? WEEK_INDEX.get(w.week_start) : null; }
+// ACR flag for one week, or null. In-progress weeks never flag (their ACR is "as of today").
+function weekFlag(w) {
+  const i = weekHistoryIndex(w);
+  if (i == null || i < FLAG_WARMUP_WEEKS || w.partial) return null;
+  if (w.acr_status !== "warning" && w.acr_status !== "critical") return null;
+  return { status: w.acr_status, direction: w.acr > 1 ? "went up" : "dropped", acr: w.acr, week: w.week_start };
+}
+// Mean of `field` over n weeks ending at (includeCurrent) or just before week index i. Null if the
+// window is short, holds an in-progress week, or has a gap.
+function trailingMean(field, i, n, includeCurrent) {
+  const all = DATA.weekly || [];
+  const lo = includeCurrent ? i - n + 1 : i - n, hi = includeCurrent ? i : i - 1;
+  if (lo < 0) return null;
+  const ws = all.slice(lo, hi + 1);
+  if (ws.length < n || ws.some(w => w.partial || w[field] == null)) return null;
+  return ws.reduce((sum, w) => sum + w[field], 0) / ws.length;
+}
+function avg4Of(w, field) { const i = weekHistoryIndex(w); return i == null ? null : trailingMean(field, i, 4, true); }
+function prev4Of(w, field) { const i = weekHistoryIndex(w); return i == null ? null : trailingMean(field, i, 4, false); }
+function pctVsPrev4(w, field) {
+  if (w.partial) return null;
+  const p = prev4Of(w, field);
+  return p ? ((w[field] - p) / p) * 100 : null;
+}
+function lastFullWeek() {
+  const all = DATA.weekly || [];
+  for (let i = all.length - 1; i >= 0; i--) if (!all[i].partial) return all[i];
+  return null;
+}
+function fmtPct(p) { return (p >= 0 ? "+" : "−") + Math.abs(Math.round(p)) + "%"; }
+function fmtNum(v) { return (Math.round(v * 10) / 10).toLocaleString(); }
+function flagNote(f) { return f ? `ACR ${f.acr.toFixed(2)}: ${f.status}, load ${f.direction}` : ""; }
+// Training-phase starts that fall inside the plotted weeks (index of the first week on/after each start).
+function phaseLineIdx(xLabels) {
+  const out = [];
+  for (const p of (DATA.config.training_phases || [])) {
+    const i = xLabels.findIndex(d => xLabelGte(d, p.start));
+    if (i > 0 && !out.some(o => o.i === i)) out.push({ i, name: p.name });
+  }
+  return out;
+}
+// Annotation for the biggest value when it clearly stands out from the typical value (>= minRatio x median).
+function peakAnnotation(values, minRatio, fmt) {
+  const nums = values.filter(v => v != null).sort((a, b) => a - b);
+  if (nums.length < 8) return [];
+  const med = nums[Math.floor(nums.length / 2)];
+  let mi = -1;
+  values.forEach((v, i) => { if (v != null && (mi < 0 || v > values[mi])) mi = i; });
+  if (mi < 0 || !med || values[mi] < minRatio * med) return [];
+  return [{ i: mi, text: fmt(values[mi], mi) }];
+}
+function tipHtml(title, rows, note) {
+  return `<div class="tt-title">${title}</div>`
+    + rows.map(r => `<div class="tt-row"><span>${r.color ? `<i class="tt-sw" style="background:${r.color}"></i>` : ""}${r.label}</span><span>${r.value}</span></div>`).join("")
+    + (note ? `<div class="tt-note">${note}</div>` : "");
+}
+// Shared drawing pieces for the optional chart features. xCenter(i) = x of week i, colW = its column width.
+function drawFlagColumns(svg, flags, xCenter, colW, padT, plotH) {
+  flags.forEach((f, i) => {
+    if (!f) return;
+    svg.appendChild(svgEl("rect", { x: xCenter(i) - colW / 2, y: padT, width: colW, height: plotH, fill: f.status === "critical" ? "var(--band-flag-crit)" : "var(--band-flag-warn)" }));
+  });
+}
+function drawFlagRings(svg, flags, xCenter, colW) {
+  // shrink the ring when columns are narrow (a year of weeks on a phone) so neighbours don't overlap
+  const r = Math.min(4, Math.max(2.2, colW * 0.42)), sw = r < 3.4 ? 1.4 : 2;
+  flags.forEach((f, i) => {
+    if (!f) return;
+    const crit = f.status === "critical";
+    const ring = svgEl("circle", { cx: xCenter(i), cy: 8, r, class: "flag-ring", fill: crit ? "var(--critical)" : "var(--surface)", stroke: crit ? "var(--critical)" : "var(--warning)", "stroke-width": sw });
+    ring.addEventListener("mousemove", (e) => showTooltip(e.clientX, e.clientY, tipHtml(defaultXLabel(f.week), [{ label: "ACR", value: f.acr.toFixed(2) }], `${crit ? "Critical" : "Warning"}: load ${f.direction}`)));
+    ring.addEventListener("mouseleave", hideTooltip);
+    svg.appendChild(ring);
+  });
+}
+function drawPhaseLines(svg, lines, xCenter, colW, padT, plotH) {
+  for (const l of lines) {
+    const x = xCenter(l.i) - colW / 2;
+    const line = svgEl("line", { x1: x, x2: x, y1: padT, y2: padT + plotH, class: "phase-line" });
+    const title = svgEl("title", {});
+    title.textContent = "Phase: " + l.name;
+    line.appendChild(title);
+    svg.appendChild(line);
+  }
+}
+// Text label kept inside [left, right]: centred on x, nudged to start/end anchor near the edges.
+function drawAnnotation(svg, x, y, text, left, right, anchorSide) {
+  const t = svgEl("text", { x, y, class: "annot", "text-anchor": "middle" });
+  t.textContent = text;
+  svg.appendChild(t);
+  let w = text.length * 5.8;
+  try { w = t.getComputedTextLength() || w; } catch (e) { /* hidden tab: keep the estimate */ }
+  if (anchorSide === "right") { t.setAttribute("text-anchor", "start"); t.setAttribute("x", x + 4); }
+  else if (anchorSide === "left") { t.setAttribute("text-anchor", "end"); t.setAttribute("x", x - 4); }
+  else if (x - w / 2 < left) { t.setAttribute("text-anchor", "start"); t.setAttribute("x", Math.max(x - 4, left)); }
+  else if (x + w / 2 > right) { t.setAttribute("text-anchor", "end"); t.setAttribute("x", Math.min(x + 4, right)); }
+}
+
 // ── LINE / AREA chart ─────────────────────────────────────────────────
 // series: [{label, color, values: [{x:index, date, y, meta}], area}]
 function defaultXLabel(d) { return d.length === 7 ? fmtMonth(d) : fmtDate(d); }
@@ -1054,11 +1244,11 @@ function spikeMarker(cx, topY, reason) {
   path.addEventListener("mouseleave", hideTooltip);
   return path;
 }
-function lineChart(svgId, { xLabels, series, target, targetCompare = false, bands, yBands, rangeBand, height = 210, yFormat, onClick, xLabelFormat, padL = 40, yZeroBaseline = true }) {
+function lineChart(svgId, { xLabels, series, target, targetCompare = false, bands, yBands, rangeBand, height = 210, yFormat, onClick, xLabelFormat, padL = 40, yZeroBaseline = true, flags, phaseLines, annotate }) {
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const W = svg.parentElement.clientWidth || 600;
-  const padR = 12, padT = 10, padB = 26;
+  const padR = 12, padT = flags ? 22 : 10, padB = 26;
   const plotW = W - padL - padR, plotH = height - padT - padB;
   svg.setAttribute("viewBox", `0 0 ${W} ${height}`);
 
@@ -1094,6 +1284,10 @@ function lineChart(svgId, { xLabels, series, target, targetCompare = false, band
       svg.appendChild(svgEl("rect", { x: x0, y: padT, width: Math.max(x1 - x0, 1), height: plotH, fill: b.color }));
     }
   }
+  // ACR flag columns and phase-change lines (weekly views only; callers pass nothing otherwise)
+  const lineColW = plotW / xLabels.length;
+  if (flags) drawFlagColumns(svg, flags, (i) => xScale(i), lineColW, padT, plotH);
+  if (phaseLines) drawPhaseLines(svg, phaseLines, (i) => xScale(i), lineColW, padT, plotH);
   // horizontal value bands (y-axis) — e.g. the ACR safe zone
   if (yBands) {
     for (const yb of yBands) {
@@ -1176,11 +1370,33 @@ function lineChart(svgId, { xLabels, series, target, targetCompare = false, band
       const dot = v.hollow
         ? svgEl("circle", { cx: xScale(v.x), cy: yScale(v.y), r: 3.6, class: "mark-dot", fill: "var(--surface)", stroke: color, "stroke-width": 2 })
         : svgEl("circle", { cx: xScale(v.x), cy: yScale(v.y), r: 3.2, class: "mark-dot", fill: color });
-      dot.addEventListener("mousemove", (e) => showTooltip(e.clientX, e.clientY, `<div class="tt-title">${v.meta && v.meta.title || xLabels[v.x]}</div><div class="tt-row"><span>${s.label}</span><span>${yFormat ? yFormat(v.y) : v.y}</span></div>`));
+      dot.addEventListener("mousemove", (e) => showTooltip(e.clientX, e.clientY, v.tip || `<div class="tt-title">${v.meta && v.meta.title || xLabels[v.x]}</div><div class="tt-row"><span>${s.label}</span><span>${yFormat ? yFormat(v.y) : v.y}</span></div>`));
       dot.addEventListener("mouseleave", hideTooltip);
       if (onClick) dot.addEventListener("click", () => onClick(v.x));
       svg.appendChild(dot);
       if (v.flagReason) svg.appendChild(spikeMarker(xScale(v.x), yScale(v.y), v.flagReason));
+    }
+  }
+
+  // Flag rings, direct end labels (replace a legend) and peak annotations — all opt-in.
+  if (flags) drawFlagRings(svg, flags, (i) => xScale(i), lineColW);
+  const endPts = [];
+  for (const s of series) {
+    if (!s.endLabel) continue;
+    const last = [...s.values].reverse().find(v => v.y != null);
+    if (last) endPts.push({ s, v: last });
+  }
+  endPts.sort((a, b) => yScale(a.v.y) - yScale(b.v.y));
+  endPts.forEach(({ s, v }, k) => {
+    // topmost label sits above its point, the rest below, so two close end values never overprint
+    const t = svgEl("text", { x: xScale(v.x) - 6, y: yScale(v.y) + (k === 0 ? -9 : 16), class: "end-label", "text-anchor": "end", fill: s.color });
+    t.textContent = `${s.shortLabel || s.label} ${yFormat ? yFormat(v.y) : v.y}`;
+    svg.appendChild(t);
+  });
+  if (annotate) {
+    for (const a of annotate) {
+      const pt = series[0].values[a.i];
+      if (pt && pt.y != null) drawAnnotation(svg, xScale(a.i), Math.max(yScale(pt.y) - 8, 12), a.text, padL, padL + plotW);
     }
   }
 
@@ -1219,20 +1435,28 @@ function lineChart(svgId, { xLabels, series, target, targetCompare = false, band
 
 // ── BAR chart (single or stacked) ────────────────────────────────────
 // series: [{label, color, values: [y...]}] stacked in order
-function barChart(svgId, { xLabels, series, height = 210, yFormat, onClick, stacked = false, bands, markers, outline, xLabelFormat, yMax: yMaxFixed }) {
+function barChart(svgId, { xLabels, series, height = 210, yFormat, onClick, stacked = false, bands, markers, outline, xLabelFormat, yMax: yMaxFixed, flags, phaseLines, annotate, avgLine, targetTicks, signed = false, barColors, clipBreak = false, tooltipFor }) {
   const xFmt = xLabelFormat || defaultXLabel;
   const svg = document.getElementById(svgId);
   svg.innerHTML = "";
   const W = svg.parentElement.clientWidth || 600;
-  const padL = 40, padR = 12, padT = 10, padB = 26;
+  const padL = 40, padR = 12, padT = flags ? 22 : 10, padB = 26;
   const plotW = W - padL - padR, plotH = height - padT - padB;
   svg.setAttribute("viewBox", `0 0 ${W} ${height}`);
 
   const totals = xLabels.map((_, i) => stacked ? series.reduce((sum, s) => sum + (s.values[i] || 0), 0) : Math.max(...series.map(s => s.values[i] || 0)));
   // yMaxFixed pins the axis (e.g. 100 for percentage stacks, where rounding
   // drift above 100.0 would otherwise double the axis via niceMax)
-  const yMax = yMaxFixed != null ? yMaxFixed : niceMax(Math.max(...totals, 0.001));
-  const yScale = makeScale(0, yMax, padT + plotH, padT);
+  let yMax = yMaxFixed != null ? yMaxFixed : niceMax(Math.max(...totals, 0.001));
+  // signed: values can be negative (e.g. % change, form); the axis then spans both sides of a zero line
+  let yMin = 0;
+  if (signed) {
+    const vals = series[0].values.map(v => v || 0);
+    yMax = niceMax(Math.max(...vals, 0.001));
+    const negMax = Math.max(...vals.map(v => -v), 0);
+    yMin = negMax > 0 ? -niceMax(negMax) : 0;
+  }
+  const yScale = makeScale(yMin, yMax, padT + plotH, padT);
   const bw = plotW / xLabels.length;
 
   // calendar bands (x-axis) — same convention as lineChart
@@ -1246,9 +1470,22 @@ function barChart(svgId, { xLabels, series, height = 210, yFormat, onClick, stac
     }
   }
 
+  const colCenter = (i) => padL + bw * i + bw / 2;
+  if (flags) drawFlagColumns(svg, flags, colCenter, bw, padT, plotH);
+  if (phaseLines) drawPhaseLines(svg, phaseLines, colCenter, bw, padT, plotH);
+
   const ticks = 4;
-  for (let i = 0; i <= ticks; i++) {
-    const v = yMax * (i / ticks), y = yScale(v);
+  let tickList = Array.from({ length: ticks + 1 }, (_, i) => yMax * (i / ticks));
+  if (signed && yMin < 0) {
+    // zero first, then the ends, then midpoints; skip any tick that would sit within 15px of one already kept
+    const kept = [];
+    for (const v of [0, yMax, yMin, yMax / 2, yMin / 2]) {
+      if (kept.every(k => Math.abs(yScale(k) - yScale(v)) >= 15)) kept.push(v);
+    }
+    tickList = kept;
+  }
+  for (const v of tickList) {
+    const y = yScale(v);
     svg.appendChild(svgEl("line", { x1: padL, x2: padL + plotW, y1: y, y2: y, class: "gridline" }));
     const t = svgEl("text", { x: padL - 6, y: y + 3, class: "axis-label", "text-anchor": "end" });
     t.textContent = yFormat ? yFormat(v) : Math.round(v);
@@ -1262,6 +1499,8 @@ function barChart(svgId, { xLabels, series, height = 210, yFormat, onClick, stac
     t.textContent = xFmt(d);
     svg.appendChild(t);
   });
+
+  if (signed && yMin < 0) svg.appendChild(svgEl("line", { x1: padL, x2: padL + plotW, y1: yScale(0), y2: yScale(0), class: "zero-line" }));
 
   xLabels.forEach((d, i) => {
     let base = 0;
@@ -1282,18 +1521,61 @@ function barChart(svgId, { xLabels, series, height = 210, yFormat, onClick, stac
     } else {
       const s = series[0];
       const v = s.values[i] || 0;
-      const y = yScale(v);
+      let y = yScale(v), h = Math.max(padT + plotH - y, 0);
+      if (signed) { const y0 = yScale(0), y1 = yScale(v); y = Math.min(y0, y1); h = Math.abs(y0 - y1); }
+      // clipBreak: a value above the pinned axis max is drawn to the top of the plot with a break mark
+      const clipped = clipBreak && yMaxFixed != null && v > yMax;
+      if (clipped) { y = padT; h = plotH; }
+      const fill = (barColors && barColors[i]) || s.color;
       // Outlined bar marks a value that isn't final (the in-progress week)
-      const attrs = { x: xPos, y, width: barW, height: Math.max(padT + plotH - y, 0), fill: s.color, class: "bar", rx: 3 };
-      if (outline && outline[i]) { attrs["fill-opacity"] = 0.3; attrs.stroke = s.color; attrs["stroke-dasharray"] = "3 2"; }
+      const attrs = { x: xPos, y, width: barW, height: h, fill, class: "bar", rx: 3 };
+      if (outline && outline[i]) { attrs["fill-opacity"] = 0.3; attrs.stroke = fill; attrs["stroke-dasharray"] = "3 2"; }
       const rect = svgEl("rect", attrs);
-      rect.addEventListener("mousemove", (e) => showTooltip(e.clientX, e.clientY, `<div class="tt-title">${xFmt(d)}</div><div class="tt-row"><span>${s.label}</span><span>${yFormat ? yFormat(v) : v}</span></div>`));
+      rect.addEventListener("mousemove", (e) => showTooltip(e.clientX, e.clientY, tooltipFor ? tooltipFor(i) : `<div class="tt-title">${xFmt(d)}</div><div class="tt-row"><span>${s.label}</span><span>${yFormat ? yFormat(v) : v}</span></div>`));
       rect.addEventListener("mouseleave", hideTooltip);
       if (onClick) rect.addEventListener("click", () => onClick(i));
       svg.appendChild(rect);
+      if (clipped) {
+        for (const dy of [16, 22]) svg.appendChild(svgEl("line", { x1: xPos - 1, x2: xPos + barW + 1, y1: padT + dy + 3, y2: padT + dy - 3, stroke: "var(--surface)", "stroke-width": 2 }));
+      }
       if (markers && markers[i]) svg.appendChild(spikeMarker(xPos + barW / 2, y, markers[i]));
     }
   });
+
+  // optional overlays, drawn above the bars
+  if (targetTicks) {
+    targetTicks.forEach((t, i) => {
+      if (t == null) return;
+      const barW = Math.max(bw - 4, 2), xPos = padL + bw * i + (bw - barW) / 2, ty = yScale(t);
+      svg.appendChild(svgEl("line", { x1: xPos - 2, x2: xPos + barW + 2, y1: ty, y2: ty, class: "target-tick" }));
+    });
+  }
+  if (avgLine) {
+    // a path that lifts the pen at gaps (null values) instead of joining across them
+    let d = "", pen = false;
+    avgLine.values.forEach((v, i) => {
+      if (v == null) { pen = false; return; }
+      d += (pen ? " L " : " M ") + colCenter(i) + "," + yScale(v);
+      pen = true;
+    });
+    if (d) svg.appendChild(svgEl("path", { d, class: "avg-line", stroke: avgLine.color || "var(--s2)" }));
+  }
+  if (flags) drawFlagRings(svg, flags, colCenter, bw);
+  if (annotate) {
+    for (const a of annotate) {
+      const v = series[0].values[a.i] || 0;
+      const barW = Math.max(bw - 4, 2), xPos = padL + bw * a.i + (bw - barW) / 2;
+      if (clipBreak && yMaxFixed != null && v > yMax) {
+        // label beside the clipped bar, on whichever side has room
+        const side = colCenter(a.i) > padL + plotW * 0.7 ? "left" : "right";
+        drawAnnotation(svg, side === "left" ? xPos : xPos + barW, padT + 12, a.text, padL, padL + plotW, side);
+      } else {
+        // sit above the warning-triangle marker when this bar has one
+        const lift = markers && markers[a.i] ? 14 : 0;
+        drawAnnotation(svg, colCenter(a.i), Math.max(yScale(Math.max(v, 0)) - 6 - lift, 14), a.text, padL, padL + plotW);
+      }
+    }
+  }
 }
 
 // ── horizontal bar (shoe mileage) ────────────────────────────────────
@@ -1802,20 +2084,121 @@ function renderLocations() {
 
 
 // ── render: volume (km/hours + target + bands, click drill-down) ────
+function renderLoadSummary() {
+  const raw = selectRawWeeks();
+  const full = raw.filter(w => !w.partial);
+  const withTarget = full.filter(w => w.target_km != null);
+  const beat = withTarget.filter(w => w.km >= w.target_km).length;
+  const evaluable = full.filter(w => { const i = weekHistoryIndex(w); return i != null && i >= FLAG_WARMUP_WEEKS; });
+  const flagList = full.map(w => weekFlag(w)).filter(Boolean);
+  const crit = flagList.filter(f => f.status === "critical").length, warn = flagList.length - crit;
+  const parts = [];
+  if (withTarget.length) parts.push(`Distance beat the weekly target in <b>${beat}</b> of the <b>${withTarget.length}</b> full week${withTarget.length === 1 ? "" : "s"} that had one.`);
+  if (evaluable.length) parts.push(`ACR flagged <b>${flagList.length}</b> of <b>${evaluable.length}</b> full weeks, <b>${crit}</b> of them critical.`);
+  $("#loadTakeaway").innerHTML = parts.join(" ") || "Not enough full weeks in this range for a summary.";
+
+  const tiles = [];
+  const lf = lastFullWeek();
+  if (lf) {
+    const subKm = [];
+    if (lf.target_km != null) { const d = lf.km - lf.target_km; subKm.push(`${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(1)} km against a target of ${fmtNum(lf.target_km)} km.`); }
+    const p = pctVsPrev4(lf, "km");
+    if (p != null) subKm.push(`${fmtPct(p)} against the previous 4-week average.`);
+    tiles.push({ label: "Last full week: distance", value: `${fmtNum(lf.km)} km`, sub: `Week of ${fmtDate(lf.week_start)}. ${subKm.join(" ")}` });
+    tiles.push({ label: "Last full week: climbing", value: `${Math.round(lf.elevation_m).toLocaleString()} m`, sub: lf.km > 0 ? `${(lf.elevation_m / lf.km).toFixed(1)} m climbed per km run.` : "" });
+  }
+  tiles.push({ label: "Weeks flagged by ACR (in view)", value: `${flagList.length} <span style="font-size:.55em;color:var(--ink-muted)">of ${evaluable.length}</span>`, sub: `${crit} critical, ${warn} warning.` });
+  const withCtl = (DATA.weekly || []).filter(w => w.ctl != null);
+  if (withCtl.length) {
+    const last = withCtl[withCtl.length - 1];
+    const peak = Math.max(...withCtl.slice(-52).map(w => w.ctl));
+    tiles.push({ label: "Fitness (CTL)", value: last.ctl.toFixed(0), sub: `${Math.round((last.ctl / peak) * 100)}% of its 52-week peak (${peak.toFixed(0)}). Fatigue ${last.atl.toFixed(0)}.` });
+  }
+  const row = $("#loadKpis");
+  row.innerHTML = "";
+  for (const t of tiles) {
+    const tile = document.createElement("div");
+    tile.className = "stat-tile";
+    tile.innerHTML = `<div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub}</div>`;
+    row.appendChild(tile);
+  }
+}
+
+// Show a one-line message in place of a chart that doesn't apply at this granularity (and restore it later).
+function setPanelMessage(svgId, noteId, msg) {
+  const svg = document.getElementById(svgId), note = document.getElementById(noteId);
+  if (msg) { svg.innerHTML = ""; svg.style.display = "none"; note.textContent = msg; note.hidden = false; }
+  else { svg.style.display = ""; note.hidden = true; }
+}
+
 function renderVolume() {
   const wk = recentWeeks();
-  $("#volumeTitle").textContent = state.unit === "km" ? "Weekly volume (km)" : "Weekly volume (hours)";
+  const weekly = lastGranularity === "weekly";
+  const isKm = state.unit === "km";
+  const field = isKm ? "km" : "hours";
+  $("#volumeTitle").textContent = isKm ? "Weekly distance (km)" : "Weekly time running (hours)";
   const xLabels = wk.map(w => w.week_start);
-  const values = wk.map((w, i) => ({
-    x: i, y: state.unit === "km" ? w.km : w.hours,
-    meta: { title: defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : "") },
-    hollow: w.partial,
-  }));
-  const target = state.unit === "km" ? wk.map(w => w.target_km) : wk.map(() => null);
-  lineChart("chartVolume", {
-    xLabels, series: [{ label: state.unit, color: "var(--s1)", values, area: true }],
-    target, bands: calendarBands(xLabels), height: 240,
-    yFormat: (v) => Math.round(v), onClick: lastGranularity === "weekly" ? (i) => drillWeek(wk[i].week_start) : undefined,
+  const values = wk.map(w => w[field]);
+  const unitTxt = (v) => isKm ? `${fmtNum(v)} km` : `${v.toFixed(1)} h`;
+  barChart("chartVolume", {
+    xLabels, height: 240,
+    series: [{ label: isKm ? "Distance" : "Time", color: "var(--s1)", values }],
+    outline: wk.map(w => w.partial),
+    bands: calendarBands(xLabels),
+    yFormat: (v) => isKm ? Math.round(v) : Math.round(v * 10) / 10,
+    onClick: weekly ? (i) => drillWeek(wk[i].week_start) : undefined,
+    targetTicks: isKm ? wk.map(w => w.target_km) : null,
+    ...(weekly ? {
+      flags: wk.map(weekFlag),
+      phaseLines: phaseLineIdx(xLabels),
+      avgLine: { values: wk.map(w => avg4Of(w, field)), color: "var(--s2)" },
+      annotate: peakAnnotation(values, 1.4, (v, i) => isKm ? `${Math.round(v)} km${wk[i].longest_run_km >= 0.85 * wk[i].km ? ", one run" : ""}` : `${v.toFixed(1)} h`),
+    } : {}),
+    tooltipFor: (i) => {
+      const w = wk[i];
+      const rows = [{ label: isKm ? "Distance" : "Time", value: unitTxt(w[field]), color: "var(--s1)" }];
+      if (isKm && w.target_km != null) rows.push({ label: "Target", value: `${fmtNum(w.target_km)} km`, color: "var(--ink)" });
+      let note = "";
+      if (weekly) {
+        const a = avg4Of(w, field); if (a != null) rows.push({ label: "4-week average", value: unitTxt(a), color: "var(--s2)" });
+        const p = pctVsPrev4(w, field); if (p != null) rows.push({ label: "Vs previous 4 weeks", value: fmtPct(p) });
+        note = flagNote(weekFlag(w));
+      }
+      return tipHtml(defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : ""), rows, note);
+    },
+  });
+  const sw = (c, extra) => `<span class="swatch" style="background:${c};${extra || ""}"></span>`;
+  $("#volumeLegend").innerHTML = `<span class="item">${sw("var(--s1)")}${isKm ? "Distance" : "Time"}</span>`
+    + (isKm ? `<span class="item">${sw("var(--ink)", "height:3px")}Weekly target</span>` : "")
+    + (weekly ? `<span class="item">${sw("var(--s2)", "height:3px")}4-week average</span><span class="item"><span class="ring-key"></span>ACR warning</span><span class="item"><span class="ring-key crit"></span>ACR critical</span><span class="item">${sw("var(--ink-muted)", "height:1px;width:14px")}Phase change</span>` : "");
+}
+
+function renderVsPrev4() {
+  const wk = recentWeeks();
+  const isKm = state.unit === "km";
+  const field = isKm ? "km" : "hours";
+  $("#vsPrevTitle").textContent = (isKm ? "Distance" : "Time running") + " against the previous 4 weeks";
+  if (lastGranularity !== "weekly") { setPanelMessage("chartVsPrev", "vsPrevNote", "This comparison needs weekly bars. Pick a range of 52 weeks or less."); return; }
+  setPanelMessage("chartVsPrev", "vsPrevNote", null);
+  const xLabels = wk.map(w => w.week_start);
+  const pct = wk.map(w => pctVsPrev4(w, field));
+  barChart("chartVsPrev", {
+    xLabels, height: 190, signed: true,
+    series: [{ label: "Vs previous 4 weeks", color: "var(--s1)", values: pct.map(p => p == null ? 0 : p) }],
+    yFormat: (v) => (v > 0 ? "+" : "") + Math.round(v) + "%",
+    flags: wk.map(weekFlag),
+    phaseLines: phaseLineIdx(xLabels),
+    onClick: (i) => drillWeek(wk[i].week_start),
+    tooltipFor: (i) => {
+      const w = wk[i], p = pct[i], base = prev4Of(w, field);
+      if (p == null) return tipHtml(defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : ""), [], w.partial ? "In progress, not compared yet." : "Needs 4 full weeks of history.");
+      const fmt = (v) => isKm ? `${fmtNum(v)} km` : `${v.toFixed(1)} h`;
+      return tipHtml(defaultXLabel(w.week_start), [
+        { label: "Vs previous 4 weeks", value: fmtPct(p), color: "var(--s1)" },
+        { label: "This week", value: fmt(w[field]) },
+        { label: "Previous 4-week average", value: fmt(base) },
+      ], flagNote(weekFlag(w)));
+    },
   });
 }
 
@@ -1826,24 +2209,81 @@ function drillWeek(weekStart) {
   })));
 }
 
-// Line + area, matching Weekly Volume's treatment — both are weekly running
-// totals, so rendering one as a line and the other as a bar was an
-// inconsistency rather than a deliberate choice (flagged in the 2026-08-27
-// visualization audit, actioned here).
 function renderElevation() {
   const wk = recentWeeks();
+  const weekly = lastGranularity === "weekly";
   const xLabels = wk.map(w => w.week_start);
   const elevPct = Math.round(DATA.config.elevation_spike_pct * 100);
-  const values = wk.map((w, i) => ({
-    x: i, y: w.elevation_m,
-    meta: { title: defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : "") },
-    flagReason: w.elevation_spike ? `Elevation up >${elevPct}% vs last week` : null,
-    hollow: w.partial,
-  }));
-  lineChart("chartElevation", {
-    xLabels, series: [{ label: "Elevation", color: "var(--s6)", values, area: true }],
+  const values = wk.map(w => w.elevation_m);
+  barChart("chartElevation", {
+    xLabels, series: [{ label: "Elevation", color: "var(--s6)", values }],
+    outline: wk.map(w => w.partial),
+    markers: wk.map(w => w.elevation_spike ? `Elevation up >${elevPct}% vs last week` : null),
     bands: calendarBands(xLabels),
-    yFormat: (v) => Math.round(v) + "m", onClick: lastGranularity === "weekly" ? (i) => drillWeek(wk[i].week_start) : undefined,
+    yFormat: (v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : `${Math.round(v)}m`),
+    onClick: weekly ? (i) => drillWeek(wk[i].week_start) : undefined,
+    ...(weekly ? {
+      flags: wk.map(weekFlag), phaseLines: phaseLineIdx(xLabels),
+      annotate: peakAnnotation(values, 2, (v) => `${Math.round(v).toLocaleString()} m`),
+    } : {}),
+    tooltipFor: (i) => {
+      const w = wk[i];
+      return tipHtml(defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : ""), [
+        { label: "Elevation", value: `${Math.round(w.elevation_m).toLocaleString()} m`, color: "var(--s6)" },
+        ...(w.km > 0 ? [{ label: "Per km run", value: `${(w.elevation_m / w.km).toFixed(1)} m` }] : []),
+      ], weekly ? flagNote(weekFlag(w)) : "");
+    },
+  });
+}
+
+function renderMpk() {
+  const wk = recentWeeks();
+  const weekly = lastGranularity === "weekly";
+  const xLabels = wk.map(w => w.week_start);
+  const ys = wk.map(w => (w.km > 0 ? w.elevation_m / w.km : null));
+  const values = wk.map((w, i) => ({
+    x: i, y: ys[i], hollow: w.partial,
+    meta: { title: defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : "") },
+  }));
+  lineChart("chartMpk", {
+    xLabels, series: [{ label: "Metres per km", color: "var(--s6)", values }],
+    bands: calendarBands(xLabels),
+    yFormat: (v) => Math.round(v * 10) / 10,
+    ...(weekly ? {
+      flags: wk.map(weekFlag), phaseLines: phaseLineIdx(xLabels),
+      annotate: peakAnnotation(ys, 2, (v) => `${v.toFixed(1)} m per km`),
+    } : {}),
+  });
+}
+
+function renderLongRun() {
+  const wk = recentWeeks();
+  const weekly = lastGranularity === "weekly";
+  const xLabels = wk.map(w => w.week_start);
+  const values = wk.map(w => w.longest_run_km || 0);
+  // One huge run (e.g. a 48-hour block) would flatten every other week, so the axis is capped just above
+  // the typical big run and an outlier is drawn clipped with its real value written beside it.
+  const sorted = values.filter(v => v > 0).sort((a, b) => a - b);
+  const p90 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] : 0;
+  const cap = Math.max(20, Math.ceil((p90 * 1.3) / 20) * 20); // multiples of 20 keep the 4 axis steps whole
+  const clipHigh = sorted.length > 0 && sorted[sorted.length - 1] > cap;
+  barChart("chartLongRun", {
+    xLabels, series: [{ label: "Longest run", color: "var(--s7)", values }],
+    outline: wk.map(w => w.partial),
+    bands: calendarBands(xLabels),
+    yFormat: (v) => Math.round(v),
+    onClick: weekly ? (i) => drillWeek(wk[i].week_start) : undefined,
+    // always pin the axis to a multiple of 20 so the 4 gridline steps are whole numbers (10, 20, 30...)
+    yMax: clipHigh ? cap : Math.max(20, Math.ceil(Math.max(...values, 0) / 20) * 20),
+    ...(clipHigh ? { clipBreak: true, annotate: values.map((v, i) => (v > cap ? { i, text: `${Math.round(v)} km` } : null)).filter(Boolean) } : {}),
+    ...(weekly ? { flags: wk.map(weekFlag), phaseLines: phaseLineIdx(xLabels) } : {}),
+    tooltipFor: (i) => {
+      const w = wk[i];
+      return tipHtml(defaultXLabel(w.week_start) + (w.partial ? " (in progress)" : ""), [
+        { label: "Longest run", value: `${fmtNum(w.longest_run_km || 0)} km`, color: "var(--s7)" },
+        { label: "Week total", value: `${fmtNum(w.km)} km` },
+      ], weekly ? flagNote(weekFlag(w)) : "");
+    },
   });
 }
 
@@ -1867,7 +2307,14 @@ function renderACR() {
 // the same Relative-Effort daily load that feeds ACR.
 function renderLoadTrend() {
   const wk = recentWeeks().filter(w => w.ctl != null);
-  if (!wk.length) { $("#chartLoadTrend").parentElement.innerHTML = '<div class="empty-msg">No load-trend data yet (starts 2023 — needs continuous training history).</div>'; return; }
+  const weekly = lastGranularity === "weekly";
+  if (!wk.length) {
+    // hide the chart (don't delete it, or the next range change has nothing to draw into)
+    $("#loadTrendStats").innerHTML = ""; $("#loadTrendLegend").innerHTML = "";
+    setPanelMessage("chartLoadTrend", "loadTrendNote", "No load-trend data in this range (it starts in 2023 and needs continuous training history).");
+    return;
+  }
+  setPanelMessage("chartLoadTrend", "loadTrendNote", null);
   const last = wk[wk.length - 1];
   const stats = [
     { label: "Fitness (CTL)", value: last.ctl.toFixed(0), sub: "42-day load" },
@@ -1884,23 +2331,104 @@ function renderLoadTrend() {
     row.appendChild(tile);
   }
   const xLabels = wk.map(w => w.week_start);
-  const mkSeries = (field, label, color) => ({
-    label, color,
-    values: wk.map((w, i) => ({ x: i, y: w[field], hollow: w.partial, meta: { title: defaultXLabel(w.week_start) } })),
+  const mkSeries = (field, label, shortLabel, color) => ({
+    label, shortLabel, color, endLabel: true,
+    values: wk.map((w, i) => ({
+      x: i, y: w[field], hollow: w.partial,
+      meta: { title: defaultXLabel(w.week_start) },
+      tip: tipHtml(defaultXLabel(w.week_start) + (w.partial ? " (as of today)" : ""), [
+        { label: "Fitness (CTL)", value: Math.round(w.ctl), color: "var(--s1)" },
+        { label: "Fatigue (ATL)", value: Math.round(w.atl), color: "var(--s6)" },
+        { label: "Form (TSB)", value: (w.tsb > 0 ? "+" : "") + Math.round(w.tsb) },
+      ], weekly ? flagNote(weekFlag(w)) : ""),
+    })),
   });
   lineChart("chartLoadTrend", {
     xLabels,
-    series: [
-      mkSeries("ctl", "CTL (fitness)", "var(--s1)"),
-      mkSeries("atl", "ATL (fatigue)", "var(--s6)"),
-      { ...mkSeries("tsb", "TSB (form)", "var(--s2)"), area: true },
-    ],
+    series: [mkSeries("ctl", "CTL (fitness)", "CTL", "var(--s1)"), mkSeries("atl", "ATL (fatigue)", "ATL", "var(--s6)")],
     bands: calendarBands(xLabels), height: 220, yFormat: (v) => Math.round(v),
+    ...(weekly ? { flags: wk.map(weekFlag), phaseLines: phaseLineIdx(xLabels) } : {}),
   });
   $("#loadTrendLegend").innerHTML = `
     <span class="item"><span class="swatch" style="background:var(--s1)"></span>CTL (fitness)</span>
-    <span class="item"><span class="swatch" style="background:var(--s6)"></span>ATL (fatigue)</span>
-    <span class="item"><span class="swatch" style="background:var(--s2)"></span>TSB (form)</span>`;
+    <span class="item"><span class="swatch" style="background:var(--s6)"></span>ATL (fatigue)</span>`;
+}
+
+function renderForm() {
+  const wk = recentWeeks().filter(w => w.tsb != null);
+  const weekly = lastGranularity === "weekly";
+  if (!wk.length) { setPanelMessage("chartForm", "formNote", "No form data in this range (it starts in 2023)."); return; }
+  setPanelMessage("chartForm", "formNote", null);
+  const xLabels = wk.map(w => w.week_start);
+  barChart("chartForm", {
+    xLabels, height: 190, signed: true,
+    series: [{ label: "Form (TSB)", color: "var(--s2)", values: wk.map(w => w.tsb) }],
+    barColors: wk.map(w => (w.tsb >= 0 ? "var(--s2)" : "var(--s6)")),
+    outline: wk.map(w => w.partial),
+    bands: calendarBands(xLabels),
+    yFormat: (v) => (v > 0 ? "+" : "") + Math.round(v),
+    ...(weekly ? { flags: wk.map(weekFlag), phaseLines: phaseLineIdx(xLabels) } : {}),
+    tooltipFor: (i) => {
+      const w = wk[i];
+      return tipHtml(defaultXLabel(w.week_start) + (w.partial ? " (as of today)" : ""), [
+        { label: "Form (TSB)", value: (w.tsb > 0 ? "+" : "") + w.tsb.toFixed(1), color: w.tsb >= 0 ? "var(--s2)" : "var(--s6)" },
+        { label: "Fitness (CTL)", value: w.ctl.toFixed(1) },
+        { label: "Fatigue (ATL)", value: w.atl.toFixed(1) },
+      ], w.tsb >= 0 ? "Fresh" : "Carrying more fatigue than fitness");
+    },
+  });
+}
+
+let flagSort = { key: "week", dir: -1 };
+const FLAG_COLS = [
+  { key: "week", label: "Week of" },
+  { key: "status", label: "Status" },
+  { key: "load", label: "Load" },
+  { key: "acr", label: "ACR", num: true },
+  { key: "km", label: "Km", num: true },
+  { key: "vs", label: "Vs prior 4 weeks", num: true },
+  { key: "note", label: "Note", noSort: true },
+];
+function renderFlagged() {
+  const table = $("#flagTable"), note = $("#flagNote");
+  const wk = recentWeeks();
+  if (lastGranularity !== "weekly") {
+    table.innerHTML = ""; table.style.display = "none";
+    note.textContent = "Flagged weeks need weekly bars. Pick a range of 52 weeks or less.";
+    note.hidden = false;
+    return;
+  }
+  table.style.display = "";
+  const rows = wk.map(w => ({ w, f: weekFlag(w) })).filter(x => x.f).map(({ w, f }) => {
+    const idx = weekHistoryIndex(w), prev = idx > 0 ? DATA.weekly[idx - 1] : null;
+    return { week: w.week_start, status: f.status, load: f.direction, acr: w.acr, km: w.km, vs: pctVsPrev4(w, "km"), note: prev ? `Week before: ${fmtNum(prev.km)} km` : "" };
+  });
+  if (!rows.length) { table.innerHTML = ""; note.textContent = "No full weeks were flagged in this range."; note.hidden = false; return; }
+  note.hidden = true;
+  const rank = { critical: 2, warning: 1 };
+  const k = flagSort.key, dir = flagSort.dir;
+  rows.sort((a, b) => {
+    const va = k === "status" ? rank[a.status] : a[k], vb = k === "status" ? rank[b.status] : b[k];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
+  });
+  const head = FLAG_COLS.map(c => {
+    const sorted = flagSort.key === c.key;
+    const aria = c.noSort ? "" : ` aria-sort="${sorted ? (flagSort.dir > 0 ? "ascending" : "descending") : "none"}"`;
+    const arrow = sorted ? (flagSort.dir > 0 ? " ▲" : " ▼") : "";
+    return `<th class="${c.num ? "num" : ""}"${aria}>${c.noSort ? `<span style="display:block;padding:7px 10px">${c.label}</span>` : `<button type="button" data-sort="${c.key}">${c.label}${arrow}</button>`}</th>`;
+  }).join("");
+  const body = rows.map(r => `<tr tabindex="0" data-week="${r.week}">`
+    + `<td>${defaultXLabel(r.week)}</td>`
+    + `<td><span class="ring-key ${r.status === "critical" ? "crit" : ""}"></span> ${r.status}</td>`
+    + `<td>${r.load}</td>`
+    + `<td class="num">${r.acr.toFixed(2)}</td>`
+    + `<td class="num">${fmtNum(r.km)}</td>`
+    + `<td class="num">${r.vs == null ? "" : fmtPct(r.vs)}</td>`
+    + `<td class="note-cell">${r.note}</td></tr>`).join("");
+  table.innerHTML = `<thead><tr>${head}</tr></thead><tbody>${body}</tbody>`;
 }
 
 // ── Fitness tab: Strava-style stats table ────────────────────────────
@@ -2341,7 +2869,7 @@ function renderCheckpointTable() {
 const TAB_RENDERERS = {
   summary: [renderSummary],
   plan: [renderPlanChart, renderPlanCallouts, renderPlanTable, renderPhasesTable],
-  load: [renderVolume, renderElevation, renderACR, renderLoadTrend, renderB2B],
+  load: [renderLoadSummary, renderVolume, renderVsPrev4, renderACR, renderLoadTrend, renderForm, renderElevation, renderMpk, renderLongRun, renderB2B, renderFlagged],
   fitness: [renderYearlyStats, renderEfficiency, renderHrZones, renderPaceDistribution, renderPacing, renderCadence, renderBestEfforts, renderLongestRun, renderRaceHistory],
   context: [renderWeight, renderConsistency, renderShoes, renderNight, renderTemp, renderYearly],
   locations: [renderLocations],
@@ -2403,6 +2931,22 @@ $("#unitSeg").addEventListener("click", (e) => {
   renderActive();
 });
 window.addEventListener("resize", () => renderActive());
+$("#flagTable").addEventListener("click", (e) => {
+  const sortBtn = e.target.closest("button[data-sort]");
+  if (sortBtn) {
+    const key = sortBtn.dataset.sort;
+    flagSort = flagSort.key === key ? { key, dir: -flagSort.dir } : { key, dir: ["week", "status", "km", "acr", "vs"].includes(key) ? -1 : 1 };
+    renderFlagged();
+    return;
+  }
+  const tr = e.target.closest("tr[data-week]");
+  if (tr) drillWeek(tr.dataset.week);
+});
+$("#flagTable").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const tr = e.target.closest("tr[data-week]");
+  if (tr) drillWeek(tr.dataset.week);
+});
 
 renderHeader();
 switchTab(location.hash.slice(1) || "summary", false);

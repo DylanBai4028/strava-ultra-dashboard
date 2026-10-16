@@ -284,6 +284,7 @@ def compute_weekly(conn, daily_effort: dict, ctl_by_date: dict, atl_by_date: dic
             "km": 0.0,
             "hours": 0.0,
             "elevation_m": 0.0,
+            "longest_run_km": 0.0,
             "run_days": set(),
             "run_count": 0,
             "weight_sessions": 0,
@@ -304,6 +305,7 @@ def compute_weekly(conn, daily_effort: dict, ctl_by_date: dict, atl_by_date: dic
             bucket["km"] += (a["distance"] or 0) / 1000
             bucket["hours"] += (a["moving_time"] or 0) / 3600
             bucket["elevation_m"] += a["elevation_gain"] or 0
+            bucket["longest_run_km"] = max(bucket["longest_run_km"], (a["distance"] or 0) / 1000)
             bucket["run_days"].add(d)
             bucket["run_count"] += 1  # activities, not distinct days — a double-run day counts 2
             run_dates_sorted.add(d)
@@ -409,6 +411,7 @@ def compute_weekly(conn, daily_effort: dict, ctl_by_date: dict, atl_by_date: dic
                 "km": km,
                 "hours": round(b["hours"], 2),
                 "elevation_m": elevation_m,
+                "longest_run_km": round(b["longest_run_km"], 1),
                 "run_days": len(b["run_days"]),
                 "run_count": b["run_count"],
                 "weight_sessions": b["weight_sessions"],

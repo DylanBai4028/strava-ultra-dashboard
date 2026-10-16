@@ -285,6 +285,16 @@ numbers that only move when training does: plan adherence (actual vs target km
 over the last four weeks), CTL ramp in points per week, and how far the next
 planned peak week sits above the biggest week of the current build.
 
+## The Load & Safety tab
+
+The tab that answers "am I ramping too fast?" at a glance. A takeaway line and four cards sit on top (last full week against its target and the previous 4-week average, climbing and metres per km, how many weeks ACR flagged, fitness against its 52-week peak). Below them:
+
+- **Weekly distance** as bars, with a tick for each week's target, a 4-week average line, phase-change lines and a label on any outlier week. Click a bar for that week's sessions.
+- **Distance against the previous 4 weeks**, **ACR**, **Fitness & fatigue** (CTL and ATL), **Form** (TSB) as bars either side of zero, **elevation** and **metres climbed per km**, **longest run each week** and **back-to-back days**.
+- **ACR flags** on the weekly charts: an open ring for `warning`, a filled ring for `critical`, and a shaded column. A flagged-weeks table at the bottom is sortable, and each row opens that week's sessions.
+
+Weeks still in progress never flag, and neither do the first 4 weeks of your history (no 28-day baseline yet). Flags, the 4-week average and the table need weekly bars, which means a range of up to 60 weeks (the `52w` button gives a full year). "All" switches to monthly bars and shows a one-line note instead. All of it is plain SVG drawn by the template's own small chart engine, so there is no charting library to install.
+
 ## Data model
 
 See [docs/schema.md](docs/schema.md) for the full table-by-table

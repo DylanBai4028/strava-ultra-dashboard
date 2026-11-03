@@ -53,12 +53,13 @@ def ensure_strava_credentials():
 # Race dates
 KOSCI_DATE = date(2026, 11, 27)
 KOSCI_DISTANCE_KM = 161
-KOSCI_ELEVATION_M = 5131
+KOSCI_ELEVATION_M = 4710  # official 2026 Runner Guide figure (the race page said 5,131 earlier)
 KOSCI_REPORT_WEEKS_OUT = 6  # the formal readiness report is due this many weeks before race day
 # Unresolved items shown on the Kosci Readiness tab until closed (edit as they resolve).
 KOSCI_OPEN_ITEMS = [
     "Altitude: see a GP and get altitude sickness medication sorted (UTK 2025: breathlessness and chest tightness above 1,500 m)",
-    "2026 Runner Guide not published yet: checkpoint cutoff clock-times on the Key Info tab are from 2025",
+    "Mandatory gear check: Miler runners must pass it before collecting a bib (early check at a partner store by 25 Nov, or at Jindabyne check-in on Wed 25 or Thu 26 Nov). Check you have padded-palm gloves and a bivvy bag, both now mandatory",
+    "Book the Thredbo to Jindabyne finish shuttle on the participant dashboard before Fri 13 Nov if you need it",
 ]
 DELIRIOUS_WEST_DATE = date(2027, 3, 31)
 DELIRIOUS_WEST_DISTANCE_KM = 322  # ~200 mi — course distance, not GPS-measured
